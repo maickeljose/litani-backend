@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador de Almacén - Litani C.A.</title>
+<style>
+  :root {
+    --bg: #141c21; --panel: #1e272e; --panel2: #2c3842; --line: #3a4a56;
+    --txt: #e6edf2; --mute: #9ba8b5; --acc: #00a8c6;
+    --chq: #4da3ff; --car: #ff9f43; --out: #00a8c6; --pop: #e0a030; --ok: #2fbf94; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body { background: linear-gradient(135deg, #182026 0%, #222e36 50%, #153745 100%); color: var(--txt); min-height: 100vh; padding: 14px; }
+  header { max-width: 1280px; margin: 0 auto 12px; }
+  header h1 { font-size: 22px; }
+  header p { font-size: 13px; color: var(--mute); margin-top: 2px; }
+  main { max-width: 1280px; margin: 0 auto; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .toolbar button, .toolbar select { background: var(--panel2); color: var(--txt); border: 1px solid var(--line); padding: 9px 14px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+  .toolbar button.main { background: linear-gradient(90deg, #008ca5, #00a8c6); border-color: transparent; font-weight: bold; min-width: 120px; }
+  .toolbar button:hover { border-color: var(--acc); }
+  .toolbar label { font-size: 13px; color: var(--mute); display: flex; align-items: center; gap: 6px; }
+  .clock { margin-left: auto; font-size: 22px; font-weight: bold; font-variant-numeric: tabular-nums; background: var(--panel); border: 1px solid var(--line); padding: 4px 14px; border-radius: 6px; }
+  details.panel { background: var(--panel); border-radius: 10px; border-top: 3px solid var(--acc); padding: 10px 14px; margin-bottom: 10px; }
+  details.panel summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+  .params { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 18px; margin-top: 10px; }
+  .param label { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); margin-bottom: 2px; }
+  .param label b { color: var(--txt); font-variant-numeric: tabular-nums; }
+  .param input[type=range] { width: 100%; accent-color: var(--acc); }
+  .param select, .param input[type=number] { width: 100%; background: var(--panel2); color: var(--txt); border: 1px solid var(--line); border-radius: 6px; padding: 6px; font-size: 13px; }
+  .hint { font-size: 12px; color: var(--mute); margin-top: 8px; }
+  .canvaswrap { position: relative; background: #10171c; border-radius: 10px; border: 1px solid var(--line); overflow: hidden; }
+  canvas#c { display: block; width: 100%; height: auto; }
+  #tip { position: absolute; pointer-events: none; background: rgba(10,15,18,.95); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px; line-height: 1.4; display: none; max-width: 260px; z-index: 5; }
+  #fin { position: absolute; inset: 0; background: rgba(8,12,15,.72); display: none; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+  #fin div { background: var(--panel); border: 1px solid var(--acc); border-radius: 12px; padding: 18px 24px; max-width: 420px; }
+  #fin h2 { font-size: 18px; margin-bottom: 6px; }
+  #fin p { font-size: 13px; color: var(--mute); margin-bottom: 12px; }
+  #fin button { background: linear-gradient(90deg, #008ca5, #00a8c6); color: #fff; border: none; padding: 9px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--mute); margin: 8px 2px 12px; }
+  .leyenda span i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .leyenda span i.sq { border-radius: 2px; }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+  .box { background: var(--panel); border-radius: 10px; border-top: 3px solid var(--acc); padding: 12px 14px; }
+  .box h2 { font-size: 14px; margin-bottom: 8px; }
+  .kv { font-size: 13px; }
+  .kv .row { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+  .kv .row span:first-child { color: var(--mute); }
+  .kv .row span:last-child { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kv hr { border: none; border-top: 1px solid var(--line); margin: 5px 0; }
+  #chart { width: 100%; height: auto; display: block; }
+  #log { list-style: none; font-size: 12px; max-height: 250px; overflow-y: auto; }
+  #log li { padding: 3px 0; border-bottom: 1px solid #26323a; }
+  #log li b { color: var(--acc); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .notas { background: var(--panel); border-radius: 10px; padding: 10px 14px; font-size: 13px; line-height: 1.55; color: #cbd5dd; }
+  .notas summary { cursor: pointer; font-weight: 600; color: var(--txt); }
+  .notas h3 { font-size: 13px; margin: 10px 0 3px; color: var(--txt); }
+  .notas ul { margin-left: 18px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Simulador del proceso de almacén · Litani C.A.</h1>
+  <p>Pedidos que llegan a chequeo, se llevan a las estivas y se cargan al camión. Cambia los parámetros y compara resultados.</p>
+</header>
+
+<main>
+  <div class="toolbar">
+    <button class="main" id="btnPlay" type="button">▶ Iniciar</button>
+    <button id="btnStep" type="button" title="Avanza 1 minuto de simulación">⏭ +1 min</button>
+    <button id="btnReset" type="button">↺ Reiniciar</button>
+    <label>Velocidad
+      <select id="speed">
+        <option value="1">1×</option><option value="5">5×</option><option value="10">10×</option>
+        <option value="30" selected>30×</option><option value="60">60×</option><option value="120">120×</option>
+        <option value="300">300×</option><option value="600">600×</option>
+      </select>
+    </label>
+    <button id="btnDespachar" type="button" title="Cierra y despacha el camión actual cuando termine lo que está en camino">🚚 Despachar camión</button>
+    <button id="btnCsv" type="button">⬇ Resultados (CSV)</button>
+    <div class="clock" id="clock">00:00:00</div>
+  </div>
+
+  <details class="panel" open>
+    <summary>Parámetros de la simulación</summary>
+    <div class="params" id="params"></div>
+    <p class="hint">Al mover un parámetro la simulación se reinicia con ese valor. Con la misma semilla, los mismos parámetros dan siempre los mismos resultados (útil para comparar escenarios).</p>
+  </details>
+
+  <div class="canvaswrap">
+    <canvas id="c"></canvas>
+    <div id="tip"></div>
+    <div id="fin"><div>
+      <h2>Jornada terminada</h2>
+      <p id="finTxt"></p>
+      <button type="button" id="btnFinCsv">Descargar resultados (CSV)</button>
+    </div></div>
+  </div>
+
+  <div class="leyenda">
+    <span><i style="background:#4da3ff"></i>Chequeador</span>
+    <span><i style="background:#ff9f43"></i>Cargador</span>
+    <span><i class="sq" style="background:#00a8c6"></i>Pedido OUT</span>
+    <span><i class="sq" style="background:#e0a030"></i>Pedido POP</span>
+    <span>Cada caja en una estiva es un pedido; su alto es proporcional a sus bultos. Pasa el mouse sobre una persona o una estiva para ver el detalle.</span>
+  </div>
+
+  <div class="grid">
+    <div class="box"><h2>Indicadores</h2><div class="kv" id="kv"></div></div>
+    <div class="box"><h2>Evolución</h2><canvas id="chart" width="560" height="260"></canvas></div>
+    <div class="box"><h2>Registro de eventos</h2><ul id="log"></ul></div>
+  </div>
+
+  <details class="notas">
+    <summary>Cómo funciona el modelo (para el informe)</summary>
+    <h3>Entidades y recursos</h3>
+    <ul>
+      <li><b>Pedidos</b>: tienen número de factura, tipo (OUT o POP) y bultos (distribución triangular entre 3, 12 y el máximo configurado).</li>
+      <li><b>Chequeadores</b> y <b>cargadores</b>: son los recursos que atienden. Cada uno camina a una velocidad configurable (1 píxel = 0,1 m).</li>
+      <li><b>Estivas</b>: almacenan los pedidos ubicados. Si no hay espacio, se asigna igual la menos ocupada y se cuenta un exceso, igual que en el sistema real (avisa, pero no bloquea).</li>
+      <li><b>Camión</b>: tiene capacidad en bultos. Sale cuando está lleno o cuando ningún pedido ubicado cabe en lo que le queda; después hay un tiempo de cambio hasta que llega el siguiente.</li>
+    </ul>
+    <h3>Proceso</h3>
+    <ul>
+      <li>Llegan pedidos a recepción con tiempos entre llegadas exponenciales (proceso de Poisson).</li>
+      <li>Un chequeador libre toma el primero de la cola (FIFO). El chequeo dura una variable normal truncada (σ = 25 % de la media).</li>
+      <li>El chequeador lo lleva a una estiva según la política de ubicación y lo coloca. Luego vuelve a su puesto.</li>
+      <li>Un cargador libre elige un pedido ubicado según la política de carga, lo recoge, lo lleva al camión y lo carga. El tiempo de carga es proporcional a los bultos.</li>
+    </ul>
+    <h3>Cómo se simula el tiempo</h3>
+    <ul>
+      <li>Es una simulación basada en agentes con reloj discreto (Δt = 0,5 s). Las llegadas, los tiempos de chequeo y los bultos son aleatorios, con una semilla fija para poder repetir los experimentos.</li>
+    </ul>
+    <h3>Supuestos a validar</h3>
+    <ul>
+      <li>Los valores por defecto son <b>supuestos de ejemplo</b>, no mediciones. Para el informe conviene reemplazarlos por tiempos reales cronometrados en el almacén (llegadas por hora, tiempo de chequeo, caminata y carga por bulto, capacidad real del camión).</li>
+      <li>Las rutas siguen pasillos fijos y las personas no se bloquean entre sí.</li>
+    </ul>
+  </details>
+</main>
+
+<script>
+'use strict';
+
+/* ====================== utilidades ====================== */
+const $ = (id) => document.getElementById(id);
+const W = 1180, H = 620, DT = 0.5;
+const C = {
+  floor: '#1a242b', zone: '#222f37', line: '#3a4a56', text: '#d6dfe6', mute: '#8fa0ad',
+  out: '#00a8c6', pop: '#e0a030', chq: '#4da3ff', car: '#ff9f43', ok: '#2fbf94', bad: '#ff6b6b'
+};
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let rng = mulberry32(1);
+const rand = () => rng();
+const expo = (media) => -media * Math.log(1 - rand());
+function normal(media, sd) {
+  const u = 1 - rand(), v = rand();
+  return media + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function tri(a, c, b) {
+  const u = rand(), F = (c - a) / (b - a);
+  return u < F ? a + Math.sqrt(u * (b - a) * (c - a)) : b - Math.sqrt((1 - u) * (b - a) * (b - c));
+}
+const pad = (n, l) => String(n).padStart(l, '0');
+function hms(t) {
+  t = Math.floor(t);
+  return pad(Math.floor(t / 3600), 2) + ':' + pad(Math.floor(t % 3600 / 60), 2) + ':' + pad(t % 60, 2);
+}
+const min1 = (s) => (s / 60).toFixed(1);
+
+/* ====================== parámetros ====================== */
+const SPEC = [
+  { id: 'nChq',   label: 'Chequeadores',                       min: 1,   max: 8,    step: 1,   val: 3 },
+  { id: 'nCar',   label: 'Cargadores',                         min: 1,   max: 8,    step: 1,   val: 3 },
+  { id: 'rate',   label: 'Llegada de pedidos (por hora)',      min: 10,  max: 150,  step: 5,   val: 60 },
+  { id: 'tChq',   label: 'Tiempo medio de chequeo (s)',        min: 30,  max: 300,  step: 10,  val: 120 },
+  { id: 'sBulto', label: 'Carga al camión (s por bulto)',      min: 0.5, max: 4,    step: 0.5, val: 1.5 },
+  { id: 'vel',    label: 'Velocidad al caminar (m/s)',         min: 0.8, max: 2,    step: 0.1, val: 1.2 },
+  { id: 'bMax',   label: 'Bultos máximos por pedido',          min: 20,  max: 60,   step: 5,   val: 45 },
+  { id: 'pPop',   label: 'Pedidos POP (%)',                    min: 0,   max: 50,   step: 5,   val: 15 },
+  { id: 'nEst',   label: 'Cantidad de estivas',                min: 6,   max: 20,   step: 1,   val: 20 },
+  { id: 'capEst', label: 'Capacidad por estiva (bultos)',      min: 30,  max: 80,   step: 5,   val: 50 },
+  { id: 'capCam', label: 'Capacidad del camión (bultos)',      min: 150, max: 800,  step: 50,  val: 400 },
+  { id: 'tCambio',label: 'Cambio de camión (min)',             min: 1,   max: 20,   step: 1,   val: 5 }
+];
+
+function construirParametros() {
+  const cont = $('params');
+  SPEC.forEach((p) => {
+    const d = document.createElement('div');
+    d.className = 'param';
+    d.innerHTML = '<label><span>' + p.label + '</span><b id="v_' + p.id + '">' + p.val + '</b></label>' +
+      '<input type="range" id="' + p.id + '" min="' + p.min + '" max="' + p.max + '" step="' + p.step + '" value="' + p.val + '">';
+    cont.appendChild(d);
+    const inp = d.querySelector('input');
+    inp.addEventListener('input', () => { $('v_' + p.id).textContent = inp.value; });
+    inp.addEventListener('change', reiniciar);
+  });
+  const extra = [
+    { id: 'polUbi', label: 'Política de ubicación (chequeadores)', opts: [['primera', 'Primera estiva con espacio'], ['menos', 'La estiva menos ocupada'], ['azar', 'Al azar entre las que tienen espacio']] },
+    { id: 'polCar', label: 'Política de carga (cargadores)', opts: [['fifo', 'El pedido más antiguo (FIFO)'], ['cercano', 'El más cercano al camión'], ['mayor', 'El pedido más grande']] },
+    { id: 'jornada', label: 'Duración de la jornada', opts: [['4', '4 horas'], ['8', '8 horas'], ['12', '12 horas'], ['0', 'Sin límite']], def: '8' }
+  ];
+  extra.forEach((p) => {
+    const d = document.createElement('div');
+    d.className = 'param';
+    d.innerHTML = '<label><span>' + p.label + '</span></label><select id="' + p.id + '">' +
+      p.opts.map((o) => '<option value="' + o[0] + '"' + (p.def === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>';
+    cont.appendChild(d);
+    d.querySelector('select').addEventListener('change', reiniciar);
+  });
+  const s = document.createElement('div');
+  s.className = 'param';
+  s.innerHTML = '<label><span>Semilla aleatoria</span></label><input type="number" id="seed" value="2026" min="1" step="1">';
+  cont.appendChild(s);
+  s.querySelector('input').addEventListener('change', reiniciar);
+}
+
+function leerCfg() {
+  const g = (id) => +$(id).value;
+  return {
+    nChq: g('nChq'), nCar: g('nCar'), rate: g('rate'), tChq: g('tChq'), sBulto: g('sBulto'), vel: g('vel'),
+    bMax: g('bMax'), pPop: g('pPop') / 100, nEst: g('nEst'), capEst: g('capEst'), capCam: g('capCam'),
+    tCambio: g('tCambio') * 60, polUbi: $('polUbi').value, polCar: $('polCar').value,
+    jornada: g('jornada') * 3600, seed: Math.max(1, Math.floor(g('seed')) || 1)
+  };
+}
+
+/* ====================== estado ====================== */
+let cfg, S;
+let running = false;
+
+const TRUCK_Y = 320, TRUCK_REAR_X = 940, CORR_L = 285, CORR_R = 885;
+const TRUCK_MOVE = 20; // segundos simulados que tarda el camión en salir o entrar
+
+function nuevoStats() {
+  return { maxCola: 0, excesos: 0, sumEspRec: 0, nEspRec: 0, sumEspEst: 0, nEspEst: 0, sumSis: 0, nSis: 0,
+           camiones: 0, bultosDesp: 0, bultosCargados: 0, cargados: 0 };
+}
+
+function reiniciar() {
+  cfg = leerCfg();
+  rng = mulberry32(cfg.seed);
+  running = false;
+  $('btnPlay').textContent = '▶ Iniciar';
+  $('fin').style.display = 'none';
+
+  S = { t: 0, pedidos: [], cola: [], nextId: 1, nextArrival: 0, estivas: [], chq: [], car: [], truck: null,
+        log: [], logDirty: true, serie: [], nextSample: 0, fin: false, st: nuevoStats() };
+  S.nextArrival = expo(3600 / cfg.rate);
+
+  const filas = 4;
+  for (let i = 0; i < cfg.nEst; i++) {
+    const c = Math.floor(i / filas), r = i % filas;
+    const x0 = 312 + c * 110, y0 = 82 + r * 120;
+    S.estivas.push({ id: i + 1, c, r, x0, y0, ax: x0 + 55, ay: y0 + 106, ocup: 0, resIn: 0, pedidos: [] });
+  }
+  for (let i = 0; i < cfg.nChq; i++) {
+    const y = cfg.nChq === 1 ? 340 : 112 + i * (456 / (cfg.nChq - 1));
+    S.chq.push({ rol: 'chq', n: i + 1, hx: 192, hy: y, x: 192, y: y, state: 'libre', path: [], pedido: null, timer: 0, total: 0, busy: 0, estiva: null });
+  }
+  for (let i = 0; i < cfg.nCar; i++) {
+    const y = 430 + i * 22;
+    S.car.push({ rol: 'car', n: i + 1, hx: 915, hy: y, x: 915, y: y, state: 'libre', path: [], pedido: null, timer: 0, total: 0, busy: 0, estiva: null });
+  }
+  S.truck = { nro: 1, estado: 'presente', off: 0, carga: 0, res: 0, espera: 0, manual: false };
+  addLog('Comienza la jornada. Camión Nº 1 en el muelle.');
+  refrescarUI(true);
+}
+
+/* ====================== registro ====================== */
+function addLog(msg) {
+  S.log.push({ t: S.t, msg });
+  if (S.log.length > 300) { S.log.shift(); }
+  S.logDirty = true;
+}
+const fac = (p) => 'F-' + pad(p.id, 4);
+
+/* ====================== lógica ====================== */
+function mover(w, dt, vel) {
+  let d = vel * dt;
+  while (d > 0 && w.path.length) {
+    const p = w.path[0], dx = p[0] - w.x, dy = p[1] - w.y, dist = Math.hypot(dx, dy);
+    if (dist <= d) { w.x = p[0]; w.y = p[1]; w.path.shift(); d -= dist; }
+    else { w.x += dx / dist * d; w.y += dy / dist * d; d = 0; }
+  }
+  return w.path.length === 0;
+}
+
+function crearPedido(tLleg) {
+  const b = Math.max(1, Math.round(tri(3, 12, cfg.bMax)));
+  const p = { id: S.nextId++, tipo: rand() < cfg.pPop ? 'POP' : 'OUT', bultos: b, estado: 'cola', tLleg,
+              tIniChq: null, tUbic: null, tIniCarga: null, tCarg: null, estiva: null, camion: null, reservado: false };
+  S.pedidos.push(p);
+  S.cola.push(p);
+  S.st.maxCola = Math.max(S.st.maxCola, S.cola.length);
+  addLog('Llega ' + fac(p) + ' (' + b + ' bultos, ' + p.tipo + ') a recepción.');
+}
+
+function elegirEstiva(p) {
+  const cand = S.estivas.filter((e) => e.ocup + e.resIn + p.bultos <= cfg.capEst);
+  const menos = (arr) => arr.reduce((a, b) => (a.ocup + a.resIn <= b.ocup + b.resIn ? a : b));
+  if (!cand.length) { return menos(S.estivas); }
+  if (cfg.polUbi === 'primera') { return cand[0]; }
+  if (cfg.polUbi === 'menos') { return menos(cand); }
+  return cand[Math.floor(rand() * cand.length)];
+}
+
+function actualizarChq(w) {
+  const vel = cfg.vel * 10;
+  switch (w.state) {
+    case 'libre':
+      if (S.cola.length) {
+        const p = S.cola.shift();
+        p.estado = 'chequeando'; p.tIniChq = S.t;
+        S.st.sumEspRec += S.t - p.tLleg; S.st.nEspRec++;
+        w.pedido = p;
+        w.total = w.timer = Math.max(20, normal(cfg.tChq, 0.25 * cfg.tChq));
+        w.state = 'chequeando';
+        addLog('Chequeador ' + w.n + ' empieza a chequear ' + fac(p) + '.');
+      }
+      break;
+    case 'chequeando':
+      w.timer -= DT;
+      if (w.timer <= 0) {
+        const e = elegirEstiva(w.pedido);
+        w.estiva = e; e.resIn += w.pedido.bultos;
+        w.pedido.estado = 'a_estiva';
+        w.path = [[CORR_L, w.hy], [CORR_L, e.ay], [e.ax, e.ay]];
+        w.state = 'camino'; w.timer = 0;
+        addLog('Chequeador ' + w.n + ' lleva ' + fac(w.pedido) + ' a la estiva E' + e.id + '.');
+      }
+      break;
+    case 'camino':
+      if (mover(w, DT, vel)) { w.state = 'colocando'; w.total = w.timer = 3 + 0.3 * w.pedido.bultos; }
+      break;
+    case 'colocando':
+      w.timer -= DT;
+      if (w.timer <= 0) {
+        const e = w.estiva, p = w.pedido;
+        e.resIn -= p.bultos; e.ocup += p.bultos; e.pedidos.push(p);
+        p.estado = 'ubicado'; p.tUbic = S.t; p.estiva = e.id;
+        const exc = e.ocup > cfg.capEst;
+        if (exc) { S.st.excesos++; }
+        addLog(fac(p) + ' ubicado en E' + e.id + ' (' + e.ocup + '/' + cfg.capEst + ')' + (exc ? ' ⚠ excede la capacidad' : '') + '.');
+        w.pedido = null; w.timer = 0;
+        w.path = [[CORR_L, e.ay], [CORR_L, w.hy], [w.hx, w.hy]];
+        w.state = 'regreso';
+      }
+      break;
+    case 'regreso':
+      if (mover(w, DT, vel)) { w.state = 'libre'; w.estiva = null; }
+      break;
+  }
+  if (w.state !== 'libre') { w.busy += DT; }
+}
+
+function elegirParaCargar() {
+  const T = S.truck;
+  const restante = cfg.capCam - T.carga - T.res;
+  let mejor = null, mejorE = null, mejorClave = null;
+  for (const e of S.estivas) {
+    for (const p of e.pedidos) {
+      if (p.reservado || p.bultos > restante) { continue; }
+      let clave;
+      if (cfg.polCar === 'fifo') { clave = p.tUbic; }
+      else if (cfg.polCar === 'cercano') { clave = Math.hypot(e.ax - TRUCK_REAR_X, e.ay - TRUCK_Y); }
+      else { clave = -p.bultos; }
+      if (mejorClave === null || clave < mejorClave) { mejorClave = clave; mejor = p; mejorE = e; }
+    }
+  }
+  return mejor ? { p: mejor, e: mejorE } : null;
+}
+
+function actualizarCar(w) {
+  const vel = cfg.vel * 10, T = S.truck;
+  switch (w.state) {
+    case 'libre':
+      if (T.estado === 'presente' && !T.manual) {
+        const sel = elegirParaCargar();
+        if (sel) {
+          const p = sel.p, e = sel.e;
+          p.reservado = true; p.tIniCarga = S.t; p.estado = 'a_recoger';
+          S.st.sumEspEst += S.t - p.tUbic; S.st.nEspEst++;
+          T.res += p.bultos;
+          w.pedido = p; w.estiva = e;
+          w.path = [[CORR_R, w.hy], [CORR_R, e.ay], [e.ax, e.ay]];
+          w.state = 'camino_estiva';
+          addLog('Cargador ' + w.n + ' va por ' + fac(p) + ' a la estiva E' + e.id + '.');
+        }
+      }
+      break;
+    case 'camino_estiva':
+      if (mover(w, DT, vel)) { w.state = 'recogiendo'; w.total = w.timer = 3 + 0.5 * w.pedido.bultos; }
+      break;
+    case 'recogiendo':
+      w.timer -= DT;
+      if (w.timer <= 0) {
+        const e = w.estiva, p = w.pedido;
+        e.pedidos.splice(e.pedidos.indexOf(p), 1);
+        e.ocup -= p.bultos;
+        p.estado = 'a_camion';
+        w.path = [[CORR_R, e.ay], [CORR_R, TRUCK_Y], [TRUCK_REAR_X, TRUCK_Y]];
+        w.state = 'camino_camion'; w.timer = 0;
+      }
+      break;
+    case 'camino_camion':
+      if (mover(w, DT, vel)) { w.state = 'cargando'; w.total = w.timer = 2 + cfg.sBulto * w.pedido.bultos; }
+      break;
+    case 'cargando':
+      w.timer -= DT;
+      if (w.timer <= 0) {
+        const p = w.pedido;
+        T.carga += p.bultos; T.res -= p.bultos;
+        p.estado = 'cargado'; p.tCarg = S.t; p.camion = T.nro;
+        S.st.sumSis += S.t - p.tLleg; S.st.nSis++; S.st.cargados++; S.st.bultosCargados += p.bultos;
+        addLog('Cargador ' + w.n + ' carga ' + fac(p) + ' al camión Nº ' + T.nro + ' (' + T.carga + '/' + cfg.capCam + ').');
+        w.pedido = null; w.timer = 0;
+        w.path = [[CORR_R, TRUCK_Y], [CORR_R, w.hy], [w.hx, w.hy]];
+        w.state = 'regreso';
+      }
+      break;
+    case 'regreso':
+      if (mover(w, DT, vel)) { w.state = 'libre'; w.estiva = null; }
+      break;
+  }
+  if (w.state !== 'libre') { w.busy += DT; }
+}
+
+function despachar() {
+  const T = S.truck;
+  T.estado = 'saliendo'; T.manual = false;
+  S.st.camiones++; S.st.bultosDesp += T.carga;
+  addLog('Camión Nº ' + T.nro + ' sale con ' + T.carga + ' bultos (' + Math.round(T.carga / cfg.capCam * 100) + ' % de su capacidad).');
+}
+
+function actualizarCamion() {
+  const T = S.truck, vmov = 280 / TRUCK_MOVE;
+  switch (T.estado) {
+    case 'presente': {
+      if (T.res === 0 && T.carga > 0) {
+        const restante = cfg.capCam - T.carga;
+        const hayUbic = S.estivas.some((e) => e.pedidos.length > 0);
+        const cabe = S.estivas.some((e) => e.pedidos.some((p) => p.bultos <= restante));
+        if (restante <= 0 || (hayUbic && !cabe) || T.manual) { despachar(); }
+      }
+      break;
+    }
+    case 'saliendo':
+      T.off += vmov * DT;
+      if (T.off >= 280) { T.off = 280; T.estado = 'cambio'; T.espera = cfg.tCambio; }
+      break;
+    case 'cambio':
+      T.espera -= DT;
+      if (T.espera <= 0) {
+        T.nro++; T.carga = 0; T.res = 0; T.estado = 'llegando';
+        addLog('Llega el camión Nº ' + T.nro + ' al muelle.');
+      }
+      break;
+    case 'llegando':
+      T.off -= vmov * DT;
+      if (T.off <= 0) { T.off = 0; T.estado = 'presente'; }
+      break;
+  }
+}
+
+function contarUbicados() {
+  let n = 0, b = 0;
+  S.estivas.forEach((e) => { n += e.pedidos.length; b += e.ocup; });
+  return { n, b };
+}
+
+function paso() {
+  S.t += DT;
+  while (S.t >= S.nextArrival) {
+    const t = S.nextArrival;
+    crearPedido(t);
+    S.nextArrival += expo(3600 / cfg.rate);
+  }
+  S.chq.forEach(actualizarChq);
+  actualizarCamion();
+  S.car.forEach(actualizarCar);
+  S.st.maxCola = Math.max(S.st.maxCola, S.cola.length);
+
+  if (S.t >= S.nextSample) {
+    const u = contarUbicados();
+    S.serie.push({ t: S.t, cola: S.cola.length, ubic: u.n });
+    S.nextSample += 30;
+  }
+  if (cfg.jornada > 0 && S.t >= cfg.jornada) { terminar(); }
+}
+
+function terminar() {
+  S.fin = true; running = false;
+  $('btnPlay').textContent = '▶ Iniciar';
+  const m = metricas();
+  $('finTxt').textContent = m.cargados + ' pedidos cargados (' + m.bultosCargados + ' bultos) en ' + m.camiones +
+    ' camiones despachados. Tiempo medio en el sistema: ' + min1(m.tSis) + ' min. Cola máxima en recepción: ' + S.st.maxCola + '.';
+  $('fin').style.display = 'flex';
+  refrescarUI(true);
+}
+
+/* ====================== métricas ====================== */
+function metricas() {
+  const st = S.st, u = contarUbicados();
+  const cnt = { cola: S.cola.length, chq: 0, aEst: 0, aCam: 0 };
+  S.pedidos.forEach((p) => {
+    if (p.estado === 'chequeando') { cnt.chq++; }
+    else if (p.estado === 'a_estiva') { cnt.aEst++; }
+    else if (p.estado === 'a_recoger' || p.estado === 'a_camion') { cnt.aCam++; }
+  });
+  const t = Math.max(S.t, 1);
+  const busyC = S.chq.reduce((a, w) => a + w.busy, 0), busyK = S.car.reduce((a, w) => a + w.busy, 0);
+  return {
+    llegados: S.pedidos.length, cola: cnt.cola, chq: cnt.chq, aEst: cnt.aEst, aCam: cnt.aCam,
+    ubicN: u.n, ubicB: u.b, cargados: st.cargados, bultosCargados: st.bultosCargados, camiones: st.camiones,
+    bultosDesp: st.bultosDesp, tRec: st.nEspRec ? st.sumEspRec / st.nEspRec : 0,
+    tEst: st.nEspEst ? st.sumEspEst / st.nEspEst : 0, tSis: st.nSis ? st.sumSis / st.nSis : 0,
+    utilChq: busyC / (t * cfg.nChq) * 100, utilCar: busyK / (t * cfg.nCar) * 100,
+    porHora: st.cargados / (t / 3600), excesos: st.excesos
+  };
+}
+
+/* ====================== interfaz ====================== */
+let ultimaUI = 0;
+function refrescarUI(forzar) {
+  const ahora = performance.now();
+  if (!forzar && ahora - ultimaUI < 200) { return; }
+  ultimaUI = ahora;
+
+  $('clock').textContent = hms(S.t);
+  const m = metricas(), T = S.truck;
+  const pct = Math.round(T.carga / cfg.capCam * 100);
+  const filas = [
+    ['Pedidos que han llegado', m.llegados],
+    ['En recepción (cola)', m.cola + '  (máx. ' + S.st.maxCola + ')'],
+    ['En chequeo', m.chq],
+    ['Llevándose a estiva', m.aEst],
+    ['Ubicados en estivas', m.ubicN + ' pedidos · ' + m.ubicB + ' bultos'],
+    ['En traslado al camión', m.aCam],
+    ['hr'],
+    ['Pedidos cargados', m.cargados + ' · ' + m.bultosCargados + ' bultos'],
+    ['Camiones despachados', m.camiones],
+    ['Camión Nº ' + T.nro, (T.estado === 'presente' ? T.carga + '/' + cfg.capCam + ' (' + pct + ' %)' : T.estado === 'cambio' ? 'cambio de camión' : T.estado)],
+    ['Pedidos cargados por hora', m.porHora.toFixed(1)],
+    ['hr'],
+    ['Espera media en recepción', min1(m.tRec) + ' min'],
+    ['Espera media en estiva', min1(m.tEst) + ' min'],
+    ['Tiempo medio en el sistema', min1(m.tSis) + ' min'],
+    ['Ocupación de chequeadores', m.utilChq.toFixed(0) + ' %'],
+    ['Ocupación de cargadores', m.utilCar.toFixed(0) + ' %'],
+    ['Veces que una estiva se excedió', m.excesos]
+  ];
+  $('kv').innerHTML = filas.map((f) => f[0] === 'hr' ? '<hr>' : '<div class="row"><span>' + f[0] + '</span><span>' + f[1] + '</span></div>').join('');
+
+  if (S.logDirty) {
+    S.logDirty = false;
+    $('log').innerHTML = S.log.slice(-40).reverse().map((l) => '<li><b>' + hms(l.t) + '</b>' + l.msg + '</li>').join('');
+  }
+  dibujarGrafico();
+}
+
+function dibujarGrafico() {
+  const cv = $('chart'), g = cv.getContext('2d'), w = cv.width, h = cv.height;
+  g.clearRect(0, 0, w, h);
+  const ml = 38, mb = 24, mt = 26, mr = 8;
+  const tmax = cfg.jornada > 0 ? cfg.jornada : Math.max(S.t, 3600);
+  const ymax = Math.max(5, ...S.serie.map((s) => Math.max(s.cola, s.ubic)));
+  g.strokeStyle = '#33424d'; g.fillStyle = '#8fa0ad'; g.font = '13px sans-serif'; g.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = mt + (h - mt - mb) * (1 - i / 4);
+    g.beginPath(); g.moveTo(ml, y); g.lineTo(w - mr, y); g.stroke();
+    g.fillText(String(Math.round(ymax * i / 4)), 4, y + 4);
+  }
+  const nx = cfg.jornada > 0 ? cfg.jornada / 3600 : Math.ceil(tmax / 3600);
+  for (let i = 0; i <= nx; i++) {
+    const x = ml + (w - ml - mr) * (i * 3600 / tmax);
+    if (x <= w - mr + 1) { g.fillText(i + ' h', x - 8, h - 6); }
+  }
+  const serie = (clave, color) => {
+    g.strokeStyle = color; g.lineWidth = 2; g.beginPath();
+    S.serie.forEach((s, i) => {
+      const x = ml + (w - ml - mr) * (s.t / tmax), y = mt + (h - mt - mb) * (1 - s[clave] / ymax);
+      if (i === 0) { g.moveTo(x, y); } else { g.lineTo(x, y); }
+    });
+    g.stroke();
+  };
+  serie('cola', '#e0a030');
+  serie('ubic', '#00a8c6');
+  g.fillStyle = '#e0a030'; g.fillRect(ml, 6, 12, 5); g.fillStyle = '#cbd5dd'; g.fillText('En recepción', ml + 18, 13);
+  g.fillStyle = '#00a8c6'; g.fillRect(ml + 150, 6, 12, 5); g.fillStyle = '#cbd5dd'; g.fillText('Ubicados en estivas', ml + 168, 13);
+}
+
+/* ====================== dibujo ====================== */
+const cv = $('c'), ctx = cv.getContext('2d');
+let escala = 1;
+function ajustarCanvas() {
+  const cw = cv.parentElement.clientWidth, dpr = window.devicePixelRatio || 1;
+  escala = cw / W;
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(cw * H / W * dpr);
+  cv.style.height = (cw * H / W) + 'px';
+  ctx.setTransform(escala * dpr, 0, 0, escala * dpr, 0, 0);
+}
+
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); } else { ctx.rect(x, y, w, h); }
+}
+function txt(s, x, y, color, size, align, bold) {
+  ctx.fillStyle = color; ctx.font = (bold ? 'bold ' : '') + size + 'px "Segoe UI", sans-serif';
+  ctx.textAlign = align || 'left'; ctx.fillText(s, x, y);
+}
+function zona(x, y, w, h, titulo) {
+  ctx.fillStyle = C.zone; rr(x, y, w, h, 12); ctx.fill();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.stroke();
+  txt(titulo, x + 14, y + 22, C.mute, 12, 'left', true);
+}
+const colTipo = (p) => (p.tipo === 'POP' ? C.pop : C.out);
+
+function dibujarEstiva(e) {
+  const x = e.x0 + 23, y = e.y0 + 16, w = 64, h = 76, H1 = h - 6;
+  ctx.fillStyle = '#10171c'; rr(x, y, w, h, 4); ctx.fill();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y - 12, w, h + 12); ctx.clip();
+  let yy = y + h - 3;
+  e.pedidos.forEach((p) => {
+    const bh = Math.max(3, p.bultos / cfg.capEst * H1);
+    yy -= bh;
+    ctx.fillStyle = colTipo(p); ctx.globalAlpha = 0.92;
+    ctx.fillRect(x + 4, yy + 0.5, w - 8, bh - 1);
+    ctx.globalAlpha = 1;
+  });
+  ctx.restore();
+  ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.beginPath(); ctx.moveTo(x, y + 3); ctx.lineTo(x + w, y + 3); ctx.stroke(); ctx.setLineDash([]);
+  const r = e.ocup / cfg.capEst;
+  const col = r > 1 ? C.bad : r >= 0.7 ? C.pop : C.ok;
+  txt('E' + e.id + ' · ' + e.ocup + '/' + cfg.capEst, e.x0 + 55, e.y0 + 11, col, 10.5, 'center', true);
+}
+
+function dibujarPuesto(w) {
+  ctx.fillStyle = '#2c3a44'; rr(100, w.hy - 16, 56, 32, 4); ctx.fill();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
+  txt('M' + w.n, 128, w.hy + 4, C.mute, 10, 'center');
+  if (w.state === 'chequeando' && w.pedido) {
+    ctx.fillStyle = colTipo(w.pedido); ctx.fillRect(112, w.hy - 11, 32, 8);
+  }
+}
+
+function dibujarPersona(w) {
+  const col = w.rol === 'chq' ? C.chq : C.car;
+  const conCaja = w.pedido && ['camino', 'colocando', 'camino_camion', 'cargando'].includes(w.state);
+  if (conCaja) {
+    ctx.fillStyle = colTipo(w.pedido); ctx.fillRect(w.x - 7, w.y - 21, 14, 9);
+    ctx.strokeStyle = '#0b1014'; ctx.lineWidth = 1; ctx.strokeRect(w.x - 7, w.y - 21, 14, 9);
+  }
+  ctx.beginPath(); ctx.arc(w.x, w.y, 9, 0, Math.PI * 2);
+  ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = '#0b1014'; ctx.lineWidth = 1.5; ctx.stroke();
+  txt(String(w.n), w.x, w.y + 3.5, '#0b1014', 10, 'center', true);
+  if (w.total > 0 && w.timer > 0) {
+    ctx.beginPath(); ctx.arc(w.x, w.y, 12.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - w.timer / w.total));
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+  }
+}
+
+function dibujarCamion() {
+  const T = S.truck, tx = 950 + T.off, ty = 272;
+  if (T.estado === 'cambio') {
+    txt('Cambio de camión · llega en ' + Math.ceil(T.espera / 60) + ' min', 1026, 322, C.mute, 12, 'center');
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; rr(950, ty, 216, 100, 6); ctx.stroke(); ctx.setLineDash([]);
+    return;
+  }
+  ctx.fillStyle = '#2a3a45'; rr(tx, ty, 170, 100, 6); ctx.fill();
+  ctx.strokeStyle = '#51677a'; ctx.lineWidth = 1.5; ctx.stroke();
+  const interior = 158, frac = Math.min(1, T.carga / cfg.capCam), fr = Math.min(1 - frac, T.res / cfg.capCam);
+  ctx.fillStyle = 'rgba(0,168,198,.88)'; ctx.fillRect(tx + 6, ty + 8, interior * frac, 84);
+  ctx.fillStyle = 'rgba(0,168,198,.28)'; ctx.fillRect(tx + 6 + interior * frac, ty + 8, interior * fr, 84);
+  ctx.fillStyle = '#3d5160'; rr(tx + 174, ty + 30, 42, 70, 6); ctx.fill();
+  ctx.strokeStyle = '#51677a'; ctx.stroke();
+  ctx.fillStyle = '#8fb6cc'; ctx.fillRect(tx + 196, ty + 38, 16, 20);
+  ctx.fillStyle = '#0b1014';
+  [28, 60, 142, 196].forEach((dx) => { ctx.beginPath(); ctx.arc(tx + dx, ty + 102, 9, 0, Math.PI * 2); ctx.fill(); });
+  txt('Camión Nº ' + T.nro, tx + 85, ty - 22, C.text, 13, 'center', true);
+  txt(T.carga + ' / ' + cfg.capCam + ' bultos (' + Math.round(T.carga / cfg.capCam * 100) + ' %)', tx + 85, ty - 6, C.mute, 12, 'center');
+  txt('Puerta trasera', tx + 2, ty + 118, C.mute, 10, 'left');
+}
+
+function dibujar() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = C.floor; ctx.fillRect(0, 0, W, H);
+  txt('PLANTA DEL ALMACÉN', 14, 30, C.text, 15, 'left', true);
+  txt('Reloj de la simulación ' + hms(S.t) + ' · escala: 1 px = 0,1 m', 1166, 30, C.mute, 12, 'right');
+  zona(8, 56, 254, 556, 'ÁREA DE CHEQUEO');
+  zona(272, 56, 600, 556, 'ÁREA DE CARGA · ESTIVAS');
+  zona(880, 56, 292, 556, 'MUELLE · CAMIÓN');
+
+  ctx.setLineDash([6, 8]); ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1.2;
+  [CORR_L, CORR_R].forEach((x) => { ctx.beginPath(); ctx.moveTo(x, 66); ctx.lineTo(x, 600); ctx.stroke(); });
+  S.estivas.length && [0, 1, 2, 3].forEach((r) => {
+    const y = 82 + r * 120 + 106;
+    ctx.beginPath(); ctx.moveTo(CORR_L, y); ctx.lineTo(CORR_R, y); ctx.stroke();
+  });
+  ctx.beginPath(); ctx.moveTo(CORR_R, TRUCK_Y); ctx.lineTo(TRUCK_REAR_X, TRUCK_Y); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // recepción
+  txt('Recepción (' + S.cola.length + ')', 16, 90, C.mute, 11, 'left', true);
+  const maxVis = 72;
+  S.cola.slice(0, maxVis).forEach((p, i) => {
+    ctx.fillStyle = colTipo(p);
+    ctx.fillRect(16 + (i % 3) * 24, 100 + Math.floor(i / 3) * 18, 20, 14);
+  });
+  if (S.cola.length > maxVis) { txt('+' + (S.cola.length - maxVis) + ' más', 16, 100 + 24 * 18 + 6, C.mute, 11, 'left'); }
+  txt('↓ llegan pedidos', 16, 598, C.mute, 10.5, 'left');
+
+  S.chq.forEach(dibujarPuesto);
+  S.estivas.forEach(dibujarEstiva);
+
+  txt('Base de cargadores', 915, 416, C.mute, 10.5, 'center');
+  dibujarCamion();
+  S.chq.forEach(dibujarPersona);
+  S.car.forEach(dibujarPersona);
+}
+
+/* ====================== tooltip ====================== */
+const ESTADOS_TXT = {
+  libre: 'libre', chequeando: 'chequeando un pedido', camino: 'llevando el pedido a la estiva', colocando: 'colocando el pedido',
+  regreso: 'regresando a su puesto', camino_estiva: 'yendo a buscar un pedido', recogiendo: 'recogiendo el pedido',
+  camino_camion: 'llevando el pedido al camión', cargando: 'cargando el camión'
+};
+cv.addEventListener('mousemove', (ev) => {
+  const r = cv.getBoundingClientRect(), mx = (ev.clientX - r.left) / escala, my = (ev.clientY - r.top) / escala;
+  let html = null;
+  for (const w of S.chq.concat(S.car)) {
+    if (Math.hypot(w.x - mx, w.y - my) < 14) {
+      html = '<b>' + (w.rol === 'chq' ? 'Chequeador ' : 'Cargador ') + w.n + '</b><br>' + ESTADOS_TXT[w.state] +
+        (w.pedido ? '<br>' + fac(w.pedido) + ' · ' + w.pedido.bultos + ' bultos · ' + w.pedido.tipo : '');
+      break;
+    }
+  }
+  if (!html) {
+    for (const e of S.estivas) {
+      if (mx >= e.x0 + 23 && mx <= e.x0 + 87 && my >= e.y0 + 6 && my <= e.y0 + 92) {
+        html = '<b>Estiva E' + e.id + '</b> · ' + e.ocup + '/' + cfg.capEst + ' bultos' +
+          (e.pedidos.length ? '<br>' + e.pedidos.map((p) => fac(p) + ' (' + p.bultos + ', ' + p.tipo + ')').join('<br>') : '<br>vacía');
+        break;
+      }
+    }
+  }
+  const tip = $('tip');
+  if (html) {
+    tip.innerHTML = html; tip.style.display = 'block';
+    tip.style.left = Math.min(ev.clientX - r.left + 14, r.width - 270) + 'px';
+    tip.style.top = (ev.clientY - r.top + 14) + 'px';
+  } else { tip.style.display = 'none'; }
+});
+cv.addEventListener('mouseleave', () => { $('tip').style.display = 'none'; });
+
+/* ====================== CSV ====================== */
+function descargarCsv() {
+  const m = metricas();
+  const f = (v) => (v === null || v === undefined ? '' : Math.round(v));
+  const lineas = [
+    'Resumen de la simulación', 'Tiempo simulado (s);' + Math.round(S.t),
+    'Chequeadores;' + cfg.nChq, 'Cargadores;' + cfg.nCar, 'Pedidos por hora;' + cfg.rate, 'Tiempo medio de chequeo (s);' + cfg.tChq,
+    'Capacidad del camión;' + cfg.capCam, 'Capacidad por estiva;' + cfg.capEst, 'Política de ubicación;' + cfg.polUbi,
+    'Política de carga;' + cfg.polCar, 'Semilla;' + cfg.seed,
+    'Pedidos llegados;' + m.llegados, 'Pedidos cargados;' + m.cargados, 'Bultos cargados;' + m.bultosCargados,
+    'Camiones despachados;' + m.camiones, 'Pedidos cargados por hora;' + m.porHora.toFixed(2).replace('.', ','),
+    'Espera media en recepción (min);' + min1(m.tRec).replace('.', ','), 'Espera media en estiva (min);' + min1(m.tEst).replace('.', ','),
+    'Tiempo medio en el sistema (min);' + min1(m.tSis).replace('.', ','),
+    'Ocupación chequeadores (%);' + m.utilChq.toFixed(1).replace('.', ','), 'Ocupación cargadores (%);' + m.utilCar.toFixed(1).replace('.', ','),
+    'Cola máxima en recepción;' + S.st.maxCola, 'Excesos de estiva;' + m.excesos, '',
+    'Pedido;Tipo;Bultos;Llegada (s);Inicio chequeo (s);Ubicado (s);Inicio carga (s);Cargado (s);Estiva;Camión'
+  ];
+  S.pedidos.forEach((p) => {
+    lineas.push([fac(p), p.tipo, p.bultos, f(p.tLleg), f(p.tIniChq), f(p.tUbic), f(p.tIniCarga), f(p.tCarg), p.estiva === null ? '' : 'E' + p.estiva, p.camion === null ? '' : p.camion].join(';'));
+  });
+  const blob = new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'simulacion_almacen.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ====================== ciclo principal ====================== */
+let ultimo = 0, acum = 0;
+function frame(ahora) {
+  const dt = Math.min(0.1, (ahora - ultimo) / 1000);
+  ultimo = ahora;
+  if (running && !S.fin) {
+    acum += dt * (+$('speed').value);
+    let n = 0;
+    while (acum >= DT && n < 4000 && !S.fin) { paso(); acum -= DT; n++; }
+    if (n >= 4000) { acum = 0; }
+  }
+  dibujar();
+  refrescarUI(false);
+  requestAnimationFrame(frame);
+}
+
+function alternar() {
+  if (S.fin) { return; }
+  running = !running;
+  $('btnPlay').textContent = running ? '⏸ Pausar' : '▶ Continuar';
+}
+
+$('btnPlay').addEventListener('click', alternar);
+$('btnReset').addEventListener('click', reiniciar);
+$('btnStep').addEventListener('click', () => {
+  if (S.fin) { return; }
+  for (let i = 0; i < 120 && !S.fin; i++) { paso(); }
+  refrescarUI(true);
+});
+$('btnDespachar').addEventListener('click', () => {
+  const T = S.truck;
+  if (T.estado === 'presente' && T.carga + T.res > 0) {
+    T.manual = true;
+    addLog('Se pidió despachar el camión Nº ' + T.nro + ': sale cuando terminen los traslados en curso.');
+    refrescarUI(true);
+  }
+});
+$('btnCsv').addEventListener('click', descargarCsv);
+$('btnFinCsv').addEventListener('click', descargarCsv);
+$('speed').addEventListener('change', () => { acum = 0; });
+window.addEventListener('keydown', (ev) => {
+  if (ev.code === 'Space' && !/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)) { ev.preventDefault(); alternar(); }
+});
+window.addEventListener('resize', ajustarCanvas);
+
+construirParametros();
+ajustarCanvas();
+reiniciar();
+requestAnimationFrame((t) => { ultimo = t; frame(t); });
+</script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+-- =====================================================
+-- litani_db: recreación completa
+-- =====================================================
+DROP DATABASE IF EXISTS litani_db;
+CREATE DATABASE litani_db CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE litani_db;
+
+-- ---------- ROLES ----------
+CREATE TABLE roles (
+  id_rol     INT NOT NULL AUTO_INCREMENT,
+  nombre_rol VARCHAR(50) NOT NULL,
+  PRIMARY KEY (id_rol),
+  UNIQUE KEY uq_roles_nombre (nombre_rol)
+) ENGINE=InnoDB;
+
+-- ---------- USUARIOS ----------
+CREATE TABLE usuarios (
+  id_usuario      INT NOT NULL AUTO_INCREMENT,
+  cedula          VARCHAR(20)  NOT NULL,
+  nombre_completo VARCHAR(100) NOT NULL,
+  nombre_usuario  VARCHAR(50)  NOT NULL,
+  clave_hash      VARCHAR(255) NOT NULL,
+  id_rol          INT NOT NULL,
+  estado          ENUM('Activo','Inactivo') DEFAULT 'Activo',
+  fecha_creacion  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_usuario),
+  UNIQUE KEY uq_usuarios_cedula (cedula),
+  UNIQUE KEY uq_usuarios_nombre_usuario (nombre_usuario),
+  CONSTRAINT fk_usuarios_rol FOREIGN KEY (id_rol) REFERENCES roles (id_rol) ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- ---------- FERRETERIAS (clientes; de aquí sale el estado de destino) ----------
+CREATE TABLE ferreterias (
+  id_ferreteria  INT NOT NULL AUTO_INCREMENT,
+  rif            VARCHAR(20)  NOT NULL,
+  razon_social   VARCHAR(150) NOT NULL,
+  direccion      TEXT NOT NULL,
+  estado_region  VARCHAR(50)  NOT NULL,
+  fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_ferreteria),
+  UNIQUE KEY uq_ferreterias_rif (rif)
+) ENGINE=InnoDB;
+
+-- ---------- FILAS Y ESTIVAS (área de carga) ----------
+CREATE TABLE filas (
+  id_fila INT NOT NULL AUTO_INCREMENT,
+  nombre  VARCHAR(50) NOT NULL,
+  PRIMARY KEY (id_fila),
+  UNIQUE KEY uq_filas_nombre (nombre)
+) ENGINE=InnoDB;
+
+CREATE TABLE estivas (
+  id_estiva        INT NOT NULL AUTO_INCREMENT,
+  numero_estiva    INT NOT NULL,
+  id_fila          INT NOT NULL,
+  capacidad_maxima INT NOT NULL DEFAULT 100,  -- PROVISIONAL: se ajusta con la cifra real
+  bultos_actuales  INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (id_estiva),
+  UNIQUE KEY uq_estivas_fila_numero (id_fila, numero_estiva),
+  CONSTRAINT fk_estivas_fila FOREIGN KEY (id_fila) REFERENCES filas (id_fila) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ---------- PEDIDOS ----------
+CREATE TABLE pedidos (
+  id_pedido     INT NOT NULL AUTO_INCREMENT,
+  codigo        VARCHAR(30) NOT NULL,
+  id_ferreteria INT NOT NULL,
+  bultos        INT NOT NULL,
+  fecha_chequeo DATETIME NOT NULL,
+  id_chequeador INT NOT NULL,
+  nota          VARCHAR(255) DEFAULT NULL,
+  situacion     VARCHAR(20) NOT NULL DEFAULT 'CHEQUEADO',
+  fecha_ubicado DATETIME DEFAULT NULL,
+  id_ubicador   INT DEFAULT NULL,
+  id_estiva     INT DEFAULT NULL,
+  PRIMARY KEY (id_pedido),
+  UNIQUE KEY uq_pedidos_codigo (codigo),
+  KEY idx_pedidos_chequeador_fecha (id_chequeador, fecha_chequeo),
+  KEY idx_pedidos_fecha (fecha_chequeo),
+  KEY idx_pedidos_situacion (situacion),
+  CONSTRAINT fk_pedidos_ferreteria FOREIGN KEY (id_ferreteria) REFERENCES ferreterias (id_ferreteria),
+  CONSTRAINT fk_pedidos_chequeador FOREIGN KEY (id_chequeador) REFERENCES usuarios (id_usuario),
+  CONSTRAINT fk_pedidos_ubicador   FOREIGN KEY (id_ubicador)   REFERENCES usuarios (id_usuario),
+  CONSTRAINT fk_pedidos_estiva     FOREIGN KEY (id_estiva)     REFERENCES estivas (id_estiva)
+) ENGINE=InnoDB;
+
+-- =====================================================
+-- DATOS INICIALES
+-- =====================================================
+INSERT INTO roles (id_rol, nombre_rol) VALUES
+(1, 'Organizador'), (2, 'Chequeador'), (3, 'Supervisor'), (4, 'Soporte');
+
+INSERT INTO usuarios (id_usuario, cedula, nombre_completo, nombre_usuario, clave_hash, id_rol) VALUES
+(1, 'V-00000000', 'Soporte Técnico',   'soporte',       'admin123', 4),
+(2, 'V-11111111', 'Operador Almacén',  'chequeador_01', '123456',   2);
+
+INSERT INTO ferreterias (rif, razon_social, direccion, estado_region) VALUES
+('J-12345678-0', 'Ferretería El Candado C.A.', 'Av. Principal Calle 4',   'Zulia'),
+('J-87654321-9', 'Materiales San José',        'Zona Industrial Lote 12', 'Zulia');
+
+-- 9 filas con 10 estivas cada una
+INSERT INTO filas (nombre) VALUES
+('Fila 1'),('Fila 2'),('Fila 3'),('Fila 4'),('Fila 5'),('Fila 6'),('Fila 7'),('Fila 8'),('Fila 9');
+
+INSERT INTO estivas (numero_estiva, id_fila)
+SELECT n.num, f.id_fila
+FROM filas f
+CROSS JOIN (SELECT 1 AS num UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5
+            UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10) n;
