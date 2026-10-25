@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Litani C.A. - Dashboard</title>
+<link rel="icon" type="image/png" href="img/logo.png">
+<style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; }
+    body { background: linear-gradient(135deg, #182026 0%, #222e36 50%, #153745 100%); min-height: 100vh; padding: 16px; color: #fff; }
+    .topbar { max-width: 1000px; margin: 0 auto 16px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #9ba8b5; }
+    .topbar button { background: none; border: 1px solid #4a5a68; color: #9ba8b5; padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-left: 6px; }
+    .contenedor { max-width: 1000px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    .sub { font-size: 13px; color: #9ba8b5; margin-bottom: 16px; }
+    .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+    .filtros button { background: #2c3842; border: 1px solid #4a5a68; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .filtros button.act { border-color: #00a8c6; background: #12404d; }
+    .filtros input[type=date] { background: #2c3842; border: 1px solid #4a5a68; color: #fff; padding: 7px; border-radius: 6px; font-size: 14px; color-scheme: dark; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+    @media (max-width: 700px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+    .kpi { background: #1e272e; border-radius: 12px; border-top: 4px solid #00a8c6; padding: 14px; }
+    .kpi.pop { border-top-color: #e0a030; }
+    .kpi .v { font-size: 28px; font-weight: bold; }
+    .kpi .l { font-size: 12px; color: #9ba8b5; margin-top: 2px; }
+    .panel { background: #1e272e; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 10px 25px rgba(0,0,0,.4); overflow-x: auto; }
+    .panel h2 { font-size: 16px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: right; padding: 8px 6px; border-bottom: 1px solid #2c3842; white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: #9ba8b5; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+    td.pop, th.pop { color: #ffd27a; }
+    .barra { height: 8px; background: #2c3842; border-radius: 4px; min-width: 90px; }
+    .barra span { display: block; height: 100%; background: #00a8c6; border-radius: 4px; }
+    .estados { display: flex; gap: 12px; flex-wrap: wrap; }
+    .estado { background: #2c3842; border-radius: 8px; padding: 10px 16px; font-size: 14px; }
+    .estado b { font-size: 20px; display: block; }
+    .nota { font-size: 12px; color: #9ba8b5; margin-top: 8px; }
+    .vacio { color: #9ba8b5; font-size: 14px; text-align: center; padding: 14px 0; }
+    .alert { padding: 10px; border-radius: 6px; font-size: 14px; display: none; text-align: center; margin-bottom: 12px; background: #4a1d24; color: #ff8b8b; border: 1px solid #7d2a37; }
+</style>
+</head>
+<body>
+<div class="topbar">
+    <span>Usuario: <strong id="nombreTop"></strong></span>
+    <span>
+    <button type="button" id="btnInicio">Inicio</button>
+    <button type="button" id="btnSalir">Salir</button>
+    </span>
+</div>
+
+<div class="contenedor">
+    <h1 id="titulo">Dashboard</h1>
+    <div class="sub" id="subtitulo"></div>
+
+    <div class="filtros">
+    <button type="button" data-r="hoy" class="act">Hoy</button>
+    <button type="button" data-r="semana">Esta semana</button>
+    <button type="button" data-r="mes">Este mes</button>
+    <input type="date" id="desde">
+    <span>—</span>
+    <input type="date" id="hasta">
+    <button type="button" id="btnAplicar">Aplicar</button>
+    </div>
+
+    <div id="error" class="alert"></div>
+
+    <div class="kpis">
+    <div class="kpi"><div class="v" id="kPedOut">0</div><div class="l">Pedidos OUT</div></div>
+    <div class="kpi"><div class="v" id="kBulOut">0</div><div class="l">Bultos OUT</div></div>
+    <div class="kpi pop"><div class="v" id="kPedPop">0</div><div class="l">Pedidos POP</div></div>
+    <div class="kpi pop"><div class="v" id="kBulPop">0</div><div class="l">Bultos POP</div></div>
+    </div>
+
+    <div class="panel">
+    <h2>Estado de los pedidos del período</h2>
+    <div class="estados" id="estados"></div>
+    </div>
+
+    <div class="panel" id="panelTrabajadores">
+    <h2>Por trabajador</h2>
+    <div id="tablaTrabajadores"></div>
+    <div class="nota">La productividad se mide con los pedidos y bultos OUT. Los POP se muestran aparte.</div>
+    </div>
+
+    <div class="panel">
+    <h2>Por día</h2>
+    <div id="tablaDias"></div>
+    </div>
+</div>
+
+<script>
+    const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null');
+    if (!usuario) { window.location.href = 'index.html'; }
+
+    // Supervisor (3) y Soporte (4) ven a todos; los demás, solo lo suyo
+    const veTodos = usuario && (usuario.rol === 3 || usuario.rol === 4);
+
+    document.getElementById('nombreTop').textContent = usuario ? usuario.nombre : '';
+    document.getElementById('titulo').textContent = veTodos ? 'Dashboard de productividad' : 'Mi productividad';
+    document.getElementById('subtitulo').textContent = veTodos
+    ? 'Todos los trabajadores' : 'Tus pedidos chequeados';
+    if (!veTodos) { document.getElementById('panelTrabajadores').style.display = 'none'; }
+
+    const desde = document.getElementById('desde');
+    const hasta = document.getElementById('hasta');
+    const errorBox = document.getElementById('error');
+
+    function iso(d) {
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + mm + '-' + dd;
+    }
+
+    function rango(tipo) {
+    const hoy = new Date();
+    let ini = new Date(hoy);
+    if (tipo === 'semana') {
+        const dia = (hoy.getDay() + 6) % 7; // lunes = 0
+        ini.setDate(hoy.getDate() - dia);
+    } else if (tipo === 'mes') {
+        ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    }
+    desde.value = iso(ini);
+    hasta.value = iso(hoy);
+    }
+
+    function celda(tr, texto, clase) {
+    const td = document.createElement('td');
+    td.textContent = texto;
+    if (clase) { td.className = clase; }
+    tr.appendChild(td);
+    return td;
+    }
+
+    function tabla(contenedor, columnas, filas, conBarra) {
+    contenedor.innerHTML = '';
+    if (filas.length === 0) {
+        const v = document.createElement('div');
+        v.className = 'vacio';
+        v.textContent = 'Sin pedidos en este período';
+        contenedor.appendChild(v);
+        return;
+    }
+    const t = document.createElement('table');
+    const cab = document.createElement('tr');
+    columnas.forEach(function (c) {
+        const th = document.createElement('th');
+        th.textContent = c.t;
+        if (c.pop) { th.className = 'pop'; }
+        cab.appendChild(th);
+    });
+    if (conBarra) { cab.appendChild(document.createElement('th')); }
+    t.appendChild(cab);
+
+    const max = Math.max.apply(null, filas.map(function (f) { return f.bultosOut; }).concat([1]));
+    filas.forEach(function (f) {
+        const tr = document.createElement('tr');
+        columnas.forEach(function (c) { celda(tr, f[c.k], c.pop ? 'pop' : ''); });
+        if (conBarra) {
+        const td = document.createElement('td');
+        const b = document.createElement('div');
+        b.className = 'barra';
+        const s = document.createElement('span');
+          s.style.width = Math.round(f.bultosOut / max * 100) + '%';
+        b.appendChild(s);
+        td.appendChild(b);
+        tr.appendChild(td);
+        }
+        t.appendChild(tr);
+    });
+    contenedor.appendChild(t);
+    }
+
+    function fechaCorta(s) {
+    const p = s.split('-');
+    return p[2] + '/' + p[1] + '/' + p[0];
+    }
+
+    async function cargar() {
+    errorBox.style.display = 'none';
+    let url = '/api/dashboard?desde=' + desde.value + '&hasta=' + hasta.value;
+    if (!veTodos) { url += '&idUsuario=' + usuario.id; }
+    try {
+        const res = await fetch(url);
+        if (!res.ok) { throw new Error('HTTP ' + res.status); }
+        const d = await res.json();
+
+        document.getElementById('kPedOut').textContent = d.resumen.pedidosOut;
+        document.getElementById('kBulOut').textContent = d.resumen.bultosOut;
+        document.getElementById('kPedPop').textContent = d.resumen.pedidosPop;
+        document.getElementById('kBulPop').textContent = d.resumen.bultosPop;
+
+        const estados = document.getElementById('estados');
+        estados.innerHTML = '';
+        const nombres = { CHEQUEADO: 'Por ubicar', UBICADO: 'Ubicados', CARGADO: 'Cargados' };
+        Object.keys(d.porSituacion).forEach(function (k) {
+        const e = document.createElement('div');
+        e.className = 'estado';
+        const n = document.createElement('b');
+        n.textContent = d.porSituacion[k];
+        e.appendChild(n);
+        e.appendChild(document.createTextNode(nombres[k] || k));
+        estados.appendChild(e);
+        });
+
+        const cols = [
+        { k: 'pedidosOut', t: 'Pedidos OUT' }, { k: 'bultosOut', t: 'Bultos OUT' },
+        { k: 'pedidosPop', t: 'Pedidos POP', pop: true }, { k: 'bultosPop', t: 'Bultos POP', pop: true }
+        ];
+        tabla(document.getElementById('tablaTrabajadores'), [{ k: 'nombre', t: 'Trabajador' }].concat(cols), d.trabajadores, true);
+
+        const dias = d.dias.map(function (x) { return Object.assign({}, x, { fecha: fechaCorta(x.fecha) }); });
+        tabla(document.getElementById('tablaDias'), [{ k: 'fecha', t: 'Día' }].concat(cols), dias, false);
+    } catch (err) {
+        console.error(err);
+        errorBox.textContent = '✕ No se pudo cargar el dashboard: ' + err.message;
+        errorBox.style.display = 'block';
+    }
+    }
+
+    document.querySelectorAll('.filtros button[data-r]').forEach(function (b) {
+    b.addEventListener('click', function () {
+        document.querySelectorAll('.filtros button[data-r]').forEach(function (x) { x.classList.remove('act'); });
+        b.classList.add('act');
+        rango(b.dataset.r);
+        cargar();
+    });
+    });
+
+    document.getElementById('btnAplicar').addEventListener('click', function () {
+    document.querySelectorAll('.filtros button[data-r]').forEach(function (x) { x.classList.remove('act'); });
+    if (desde.value && hasta.value) { cargar(); }
+    });
+
+    document.getElementById('btnInicio').addEventListener('click', function () { window.location.href = 'inicio.html'; });
+    document.getElementById('btnSalir').addEventListener('click', function () {
+    sessionStorage.removeItem('usuario');
+    window.location.href = 'index.html';
+    });
+
+    rango('hoy');
+    cargar();
+</script>
+</body>
+</html>

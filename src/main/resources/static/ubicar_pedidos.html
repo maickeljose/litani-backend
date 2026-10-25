@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Litani C.A. - Ubicar Pedidos</title>
+    <link rel="icon" type="image/png" href="img/logo.png">
+    <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; }
+    body { background: linear-gradient(135deg, #182026 0%, #222e36 50%, #153745 100%); min-height: 100vh; padding: 16px 16px 120px; color: #fff; }
+    .topbar { max-width: 1200px; margin: 0 auto 12px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #9ba8b5; gap: 8px; }
+    .topbar .acciones { display: flex; gap: 8px; }
+    .topbar button { background: none; border: 1px solid #4a5a68; color: #9ba8b5; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .layout { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 340px 1fr; gap: 16px; align-items: start; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+    .panel { background: #1e272e; border-radius: 12px; border-top: 4px solid #00a8c6; padding: 16px; box-shadow: 0 10px 25px rgba(0,0,0,.5); }
+    h2 { font-size: 16px; margin-bottom: 12px; }
+    input[type=text] { width: 100%; padding: 12px; background: #2c3842; border: 1px solid #4a5a68; border-radius: 6px; font-size: 16px; color: #fff; margin-bottom: 12px; }
+    input[type=text]:focus { outline: none; border-color: #00a8c6; box-shadow: 0 0 8px rgba(0,168,198,.4); }
+    .pedido { background: #2c3842; border: 2px solid #4a5a68; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+    .pedido.sel { border-color: #00a8c6; box-shadow: 0 0 8px rgba(0,168,198,.5); }
+    .pedido .cod { font-weight: bold; font-size: 15px; }
+    .pedido .meta { font-size: 12px; color: #9ba8b5; margin-top: 2px; }
+    .pedido .dest { color: #63e6be; }
+    .tag { display: inline-block; font-size: 10px; font-weight: bold; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+    .tag.pop { background: #7a4b00; color: #ffd27a; }
+    .tag.out { background: #12404d; color: #7fdcf0; }
+    .vacio { font-size: 13px; color: #9ba8b5; text-align: center; padding: 16px 0; }
+    .zona { margin-bottom: 22px; }
+    .zona > h3 { font-size: 14px; color: #fff; border-bottom: 1px solid #4a5a68; padding-bottom: 4px; margin-bottom: 10px; }
+    .fila { margin-bottom: 14px; }
+    .fila h4 { font-size: 12px; color: #00a8c6; text-transform: uppercase; margin-bottom: 6px; }
+    .estivas { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
+    @media (max-width: 800px) { .estivas { grid-template-columns: repeat(5, 1fr); } }
+    .estiva { border-radius: 6px; padding: 6px 2px; text-align: center; cursor: pointer; font-size: 11px; border: 2px solid transparent; }
+    .estiva .n { font-weight: bold; font-size: 14px; }
+    .estiva.ok { background: #123d33; }
+    .estiva.medio { background: #4a3d12; }
+    .estiva.lleno { background: #4a1d24; }
+    .estiva.sel { border-color: #fff; }
+    .leyenda { font-size: 12px; color: #9ba8b5; margin-bottom: 12px; }
+    .alert { max-width: 1200px; margin: 0 auto 12px; padding: 10px; border-radius: 6px; font-size: 14px; display: none; text-align: center; }
+    .alert-danger { background: #4a1d24; color: #ff8b8b; border: 1px solid #7d2a37; }
+    .alert-success { background: #123d33; color: #63e6be; border: 1px solid #1f6b57; }
+    .confirmar { position: fixed; left: 0; right: 0; bottom: 0; background: #1e272e; border-top: 3px solid #00a8c6; padding: 12px 16px; display: none; align-items: center; justify-content: space-between; gap: 12px; }
+    .confirmar div { font-size: 14px; }
+    .btn { padding: 12px 18px; border: none; border-radius: 6px; background: linear-gradient(90deg, #008ca5, #00a8c6); color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; white-space: nowrap; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .contadores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+    @media (max-width: 600px) { .contadores { grid-template-columns: 1fr; } }
+    .contador { background: #2c3842; border-radius: 8px; padding: 10px 12px; border-left: 4px solid #00a8c6; }
+    .contador .l { font-size: 12px; color: #9ba8b5; text-transform: uppercase; }
+    .contador .v { font-size: 26px; font-weight: bold; margin: 2px 0; }
+    .contador .c { font-size: 11px; color: #9ba8b5; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+    <span>Usuario: <strong id="nombreTop"></strong></span>
+    <div class="acciones">
+    <button type="button" id="btnMenu">Menú</button>
+    <button type="button" id="btnSalir">Salir</button>
+    </div>
+</div>
+
+    <div id="mensaje" class="alert"></div>
+
+    <div class="layout">
+    <div class="panel">
+        <h2>Pedidos por ubicar (<span id="contador">0</span>)</h2>
+        <input type="text" id="buscar" placeholder="Buscar o escanear código" autocomplete="off" autofocus>
+        <div id="listaPedidos"></div>
+    </div>
+
+    <div class="panel" id="panelMapa">
+        <h2>Área de carga</h2>
+        <div class="contadores" id="contadores"></div>
+        <div class="leyenda">Verde: hay espacio · Amarillo: casi llena · Rojo: llena o excedida</div>
+        <div id="mapa"></div>
+    </div>
+    </div>
+
+    <div class="confirmar" id="confirmar">
+    <div id="textoConfirmar"></div>
+    <button type="button" class="btn" id="btnConfirmar" disabled>Confirmar ubicación</button>
+    </div>
+
+    <script>
+    const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null');
+    if (!usuario) { window.location.href = 'index.html'; }
+
+    const buscar = document.getElementById('buscar');
+    const listaPedidos = document.getElementById('listaPedidos');
+    const mapa = document.getElementById('mapa');
+    const confirmarBar = document.getElementById('confirmar');
+    const textoConfirmar = document.getElementById('textoConfirmar');
+    const btnConfirmar = document.getElementById('btnConfirmar');
+    const mensaje = document.getElementById('mensaje');
+
+    let pedidos = [];
+    let estivas = [];
+    let pedidoSel = null;
+    let estivaSel = null;
+
+    document.getElementById('nombreTop').textContent = usuario ? usuario.nombre : '';
+
+    function mostrar(tipo, texto) {
+        mensaje.className = 'alert alert-' + tipo;
+        mensaje.textContent = texto;
+        mensaje.style.display = 'block';
+        if (tipo === 'success') {
+        setTimeout(function () { mensaje.style.display = 'none'; }, 4000);
+        }
+    }
+
+    // Lee la respuesta; si el servidor falla, devuelve el motivo real
+    async function leerJson(res, nombre) {
+        if (!res.ok) {
+        let detalle = '';
+        try { const d = await res.json(); detalle = d.message || d.error || ''; } catch (e) {}
+        throw new Error(nombre + ' (HTTP ' + res.status + (detalle ? ': ' + detalle : '') + ')');
+        }
+        return res.json();
+    }
+
+    function filtrados() {
+        const q = buscar.value.trim().toLowerCase();
+        return q ? pedidos.filter(function (p) { return String(p.codigo).toLowerCase().includes(q); }) : pedidos;
+    }
+
+    function dibujarPedidos() {
+        document.getElementById('contador').textContent = pedidos.length;
+        listaPedidos.innerHTML = '';
+        const lista = filtrados();
+
+        if (lista.length === 0) {
+        const v = document.createElement('div');
+        v.className = 'vacio';
+        v.textContent = buscar.value.trim()
+            ? 'No hay un pedido pendiente con ese código (¿ya fue ubicado o aún no se registró?)'
+            : 'No hay pedidos pendientes de ubicar';
+        listaPedidos.appendChild(v);
+        return;
+        }
+
+        lista.forEach(function (p) {
+        const d = document.createElement('div');
+        d.className = 'pedido' + (p.id === pedidoSel ? ' sel' : '');
+
+        const cod = document.createElement('div');
+        cod.className = 'cod';
+        cod.textContent = p.codigo + ' · ' + p.bultos + ' bultos';
+
+        const tipo = p.tipo === 'POP' ? 'POP' : 'OUT';
+        const tag = document.createElement('span');
+        tag.className = 'tag ' + tipo.toLowerCase();
+        tag.textContent = tipo;
+        cod.appendChild(tag);
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = (p.ferreteria || 'Sin ferretería') + ' · ';
+        const dest = document.createElement('span');
+        dest.className = 'dest';
+        dest.textContent = p.destino || '—';
+        meta.appendChild(dest);
+
+        d.appendChild(cod);
+        d.appendChild(meta);
+        d.addEventListener('click', function () {
+            pedidoSel = p.id;
+            dibujar();
+        });
+        listaPedidos.appendChild(d);
+        });
+    }
+
+    function dibujarEstivas() {
+        mapa.innerHTML = '';
+
+      // agrupa: zona -> fila -> estivas (respeta el orden que manda el servidor)
+        const zonas = new Map();
+        estivas.forEach(function (e) {
+        const z = e.zona || 'Área de carga';
+        if (!zonas.has(z)) { zonas.set(z, new Map()); }
+        const filas = zonas.get(z);
+        if (!filas.has(e.fila)) { filas.set(e.fila, []); }
+        filas.get(e.fila).push(e);
+        });
+
+        zonas.forEach(function (filas, nombreZona) {
+        const zonaDiv = document.createElement('div');
+        zonaDiv.className = 'zona';
+        const hz = document.createElement('h3');
+        hz.textContent = nombreZona;
+        zonaDiv.appendChild(hz);
+
+        filas.forEach(function (lista, nombreFila) {
+            const fila = document.createElement('div');
+            fila.className = 'fila';
+
+            const h = document.createElement('h4');
+            const refs = lista[0].estadosReferencia;
+            h.textContent = nombreFila + (refs ? ' · ' + refs : '');
+            fila.appendChild(h);
+
+            const grid = document.createElement('div');
+            grid.className = 'estivas';
+
+            lista.forEach(function (e) {
+            const ratio = e.capacidad ? e.ocupados / e.capacidad : 0;
+            const c = document.createElement('div');
+
+            c.className = 'estiva ' + (ratio >= 1 ? 'lleno' : ratio >= 0.7 ? 'medio' : 'ok') + (e.id === estivaSel ? ' sel' : '');
+            c.title = nombreFila + ' · Estiva ' + e.numero + ': ' + e.ocupados + ' de ' + e.capacidad + ' bultos';
+
+            const n = document.createElement('div');
+            n.className = 'n';
+            n.textContent = e.numero;
+            const o = document.createElement('div');
+            o.textContent = e.ocupados + '/' + e.capacidad;
+
+            c.appendChild(n);
+            c.appendChild(o);
+            c.addEventListener('click', function () {
+                estivaSel = e.id;
+                dibujar();
+            });
+            grid.appendChild(c);
+            });
+            fila.appendChild(grid);
+            zonaDiv.appendChild(fila);
+        });
+
+        mapa.appendChild(zonaDiv);
+        });
+    }
+
+    function actualizarConfirmacion() {
+        const p = pedidos.find(function (x) { return x.id === pedidoSel; });
+        const e = estivas.find(function (x) { return x.id === estivaSel; });
+
+        if (!p && !e) { confirmarBar.style.display = 'none'; return; }
+        confirmarBar.style.display = 'flex';
+
+        if (p && !e) {
+        textoConfirmar.textContent = 'Pedido ' + p.codigo + ' (' + p.bultos + ' bultos): elige una estiva';
+        } else if (!p && e) {
+        textoConfirmar.textContent = e.fila + ' · Estiva ' + e.numero + ': elige un pedido de la lista';
+        } else {
+        const total = e.ocupados + p.bultos;
+        textoConfirmar.textContent = 'Ubicar ' + p.codigo + ' (' + p.bultos + ' bultos) en ' + e.fila + ' · Estiva ' + e.numero +
+            ' → ' + total + '/' + e.capacidad + (total > e.capacidad ? ' ⚠ excede la capacidad' : '');
+        }
+        btnConfirmar.disabled = !(p && e);
+    }
+    function dibujarContadores() {
+    const grupos = [
+    { nombre: 'Estados (9 filas)', ocupados: 0, capacidad: 0 },
+    { nombre: 'Maracaibo',         ocupados: 0, capacidad: 0 },
+    { nombre: 'Newton',            ocupados: 0, capacidad: 0 }
+    ];
+
+    estivas.forEach(function (e) {
+    const texto = ((e.fila || '') + ' ' + (e.zona || '')).toLowerCase();
+    const g = texto.includes('maracaibo') ? grupos[1]
+            : texto.includes('newton')    ? grupos[2]
+            : grupos[0];
+    g.ocupados += e.ocupados || 0;
+    g.capacidad += e.capacidad || 0;
+    });
+
+    const cont = document.getElementById('contadores');
+    cont.innerHTML = '';
+    grupos.forEach(function (g) {
+    const d = document.createElement('div');
+    d.className = 'contador';
+
+    const l = document.createElement('div');
+    l.className = 'l';
+    l.textContent = g.nombre;
+
+    const v = document.createElement('div');
+    v.className = 'v';
+    v.textContent = g.ocupados + ' bultos';
+
+    const c = document.createElement('div');
+    c.className = 'c';
+    c.textContent = 'de ' + g.capacidad + ' de capacidad';
+
+    d.appendChild(l);
+    d.appendChild(v);
+    d.appendChild(c);
+    cont.appendChild(d);
+    });
+}
+
+    function dibujar() {
+    dibujarPedidos();
+    dibujarContadores();
+    dibujarEstivas();
+    actualizarConfirmacion();
+}
+
+    async function cargar() {
+        try {
+        const r = await Promise.all([fetch('/api/pedidos/pendientes'), fetch('/api/estivas')]);
+        pedidos = await leerJson(r[0], 'Lista de pedidos');
+        estivas = await leerJson(r[1], 'Lista de estivas');
+        if (pedidoSel && !pedidos.some(function (p) { return p.id === pedidoSel; })) { pedidoSel = null; }
+        dibujar();
+        } catch (err) {
+        console.error(err);
+        mostrar('danger', '✕ Error cargando datos: ' + err.message);
+        }
+    }
+
+    buscar.addEventListener('input', dibujarPedidos);
+
+    // Enter (o lector de la PDA): elegir el pedido por su código
+    buscar.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') { return; }
+        e.preventDefault();
+        const q = buscar.value.trim().toLowerCase();
+        if (!q) { return; }
+        const exacto = pedidos.find(function (p) { return String(p.codigo).toLowerCase() === q; });
+        const lista = filtrados();
+        const elegido = exacto || (lista.length === 1 ? lista[0] : null);
+        if (elegido) {
+        pedidoSel = elegido.id;
+        dibujar();
+        document.getElementById('panelMapa').scrollIntoView({ behavior: 'smooth' });
+        }
+    });
+
+    btnConfirmar.addEventListener('click', async function () {
+        const p = pedidos.find(function (x) { return x.id === pedidoSel; });
+        const e = estivas.find(function (x) { return x.id === estivaSel; });
+        if (!p || !e) { return; }
+
+        const total = e.ocupados + p.bultos;
+        if (total > e.capacidad &&
+            !confirm('Esta estiva quedará con ' + total + ' de ' + e.capacidad + ' bultos. ¿Ubicar de todos modos?')) {
+        return;
+        }
+
+        try {
+        const res = await fetch('/api/pedidos/' + p.id + '/ubicar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idEstiva: e.id, idUbicador: usuario.id })
+        });
+        let data = {};
+        try { data = await res.json(); } catch (x) {}
+        if (!res.ok) { throw new Error(data.message || 'No se pudo ubicar el pedido (HTTP ' + res.status + ')'); }
+
+        mostrar('success', '✓ Pedido ' + p.codigo + ' ubicado en ' + e.fila + ' · Estiva ' + e.numero);
+        pedidoSel = null;
+        estivaSel = null;
+        buscar.value = '';
+        await cargar();
+        buscar.focus();
+        } catch (err) {
+        console.error(err);
+        mostrar('danger', '✕ ' + err.message);
+        }
+    });
+
+    document.getElementById('btnMenu').addEventListener('click', function () {
+        window.location.href = 'inicio.html';
+    });
+
+    document.getElementById('btnSalir').addEventListener('click', function () {
+        sessionStorage.removeItem('usuario');
+        window.location.href = 'index.html';
+    });
+
+    cargar();
+    setInterval(cargar, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Litani C.A. - Inicio</title>
+<link rel="icon" type="image/png" href="img/logo.png">
+<style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; }
+    body { background: linear-gradient(135deg, #182026 0%, #222e36 50%, #153745 100%); min-height: 100vh; padding: 16px; color: #fff; }
+    .topbar { max-width: 760px; margin: 0 auto 20px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #9ba8b5; }
+    .topbar button { background: none; border: 1px solid #4a5a68; color: #9ba8b5; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .contenedor { max-width: 760px; margin: 0 auto; }
+    .saludo { margin-bottom: 20px; }
+    .saludo h1 { font-size: 22px; margin-bottom: 4px; }
+    .saludo p { font-size: 14px; color: #9ba8b5; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+    .opcion { display: block; text-decoration: none; color: #fff; background: #1e272e; border-radius: 12px; border-top: 4px solid #00a8c6; padding: 22px 18px; box-shadow: 0 10px 25px rgba(0,0,0,.4); min-height: 110px; }
+    .opcion:hover { box-shadow: 0 4px 14px rgba(0,168,198,.45); transform: translateY(-1px); }
+    .opcion h2 { font-size: 18px; margin-bottom: 6px; }
+    .opcion p { font-size: 13px; color: #9ba8b5; }
+    .opcion.pronto { border-top-color: #4a5a68; opacity: .55; cursor: not-allowed; }
+    .opcion.pronto:hover { box-shadow: 0 10px 25px rgba(0,0,0,.4); transform: none; }
+    .etiqueta { display: inline-block; margin-top: 8px; padding: 2px 8px; border-radius: 10px; background: #2c3842; color: #9ba8b5; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+    <span>LITANI C.A. · Sistema de Bitácora Logística</span>
+    <button type="button" id="btnSalir">Salir</button>
+</div>
+
+<div class="contenedor">
+    <div class="saludo">
+    <h1>Hola, <span id="nombre"></span></h1>
+    <p>Rol: <span id="rol"></span>. ¿Qué vas a hacer?</p>
+    </div>
+
+    <div class="grid" id="opciones">
+    <a class="opcion" href="registrar_pedido.html">
+        <h2>Registrar pedido</h2>
+        <p>Anota un pedido chequeado: código, tipo, ferretería y bultos.</p>
+    </a>
+    <a class="opcion" href="ubicar_pedidos.html">
+        <h2>Ubicar pedidos</h2>
+        <p>Asigna fila y estiva a los pedidos chequeados.</p>
+    </a>
+    <a class="opcion" href="despacho.html">
+    <h2>Despacho de camiones</h2>
+    <p>Arma la carga de un camión, marca pedidos como cargados e imprime el registro.</p>
+</a>
+    <a class="opcion" href="dashboard.html">
+    <h2>Mi productividad</h2>
+    <p>Tus pedidos y bultos por día y por semana.</p>
+</a>
+    </div>
+    <a class="opcion" id="opcionDashboard" style="display:none" href="dashboard.html">
+    <h2>Dashboard</h2>
+    <p>Productividad de todos los trabajadores.</p>
+</a>
+    </div>
+    </div>
+</div>
+
+<script>
+    const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null');
+    if (!usuario) { window.location.href = 'index.html'; }
+
+    const roles = { 1: 'Organizador', 2: 'Chequeador', 3: 'Supervisor', 4: 'Soporte' };
+
+    if (usuario) {
+    document.getElementById('nombre').textContent = usuario.nombre;
+    document.getElementById('rol').textContent = roles[usuario.rol] || 'Usuario';
+      // Supervisor y Soporte verán además el dashboard general
+    if (usuario.rol === 3 || usuario.rol === 4) {
+        document.getElementById('opcionDashboard').style.display = 'block';
+    }
+    }
+
+    document.getElementById('btnSalir').addEventListener('click', function () {
+    sessionStorage.removeItem('usuario');
+    window.location.href = 'index.html';
+    });
+</script>
+</body>
+</html>

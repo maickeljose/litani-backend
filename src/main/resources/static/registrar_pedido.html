@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Litani C.A. - Registrar Pedido</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; }
+    body { background: linear-gradient(135deg, #182026 0%, #222e36 50%, #153745 100%); min-height: 100vh; padding: 16px; color: #fff; }
+    .topbar { max-width: 480px; margin: 0 auto 12px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #9ba8b5; }
+    .topbar button { background: none; border: 1px solid #4a5a68; color: #9ba8b5; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .card { max-width: 480px; margin: 0 auto; background: #1e272e; padding: 24px; border-radius: 12px; border-top: 4px solid #00a8c6; box-shadow: 0 10px 25px rgba(0,0,0,.5); }
+    h1 { font-size: 20px; margin-bottom: 18px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #00a8c6; margin-bottom: 6px; text-transform: uppercase; }
+    input, textarea { width: 100%; padding: 12px; background: #2c3842; border: 1px solid #4a5a68; border-radius: 6px; font-size: 16px; color: #fff; }
+    input:focus, textarea:focus { outline: none; border-color: #00a8c6; box-shadow: 0 0 8px rgba(0,168,198,.4); }
+    input[readonly] { opacity: .65; }
+    textarea { resize: vertical; min-height: 70px; }
+    .resultados { list-style: none; background: #2c3842; border: 1px solid #4a5a68; border-radius: 6px; margin-top: 4px; display: none; max-height: 220px; overflow-y: auto; }
+    .resultados li { padding: 12px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #3a4854; }
+    .resultados li:hover { background: #00a8c6; }
+    .destino { margin-top: 6px; font-size: 13px; color: #63e6be; }
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 6px; background: linear-gradient(90deg, #008ca5, #00a8c6); color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
+    .alert { padding: 10px; margin-top: 14px; border-radius: 6px; font-size: 14px; display: none; text-align: center; }
+    .alert-danger { background: #4a1d24; color: #ff8b8b; border: 1px solid #7d2a37; }
+    .alert-success { background: #123d33; color: #63e6be; border: 1px solid #1f6b57; }
+    .resumen { margin-top: 16px; text-align: center; font-size: 13px; color: #9ba8b5; }
+    .tipos { display: flex; gap: 10px; }
+    .tipo { flex: 1; margin: 0; cursor: pointer; text-transform: none; }
+    .tipo input { display: none; }
+    .tipo span { display: block; text-align: center; padding: 12px; border: 2px solid #4a5a68; border-radius: 6px; background: #2c3842; font-size: 16px; font-weight: bold; color: #fff; }
+    .tipo input:checked + span { border-color: #00a8c6; background: #00a8c6; }
+  </style>
+</head>
+
+<body>
+<div class="topbar">
+  <span>Usuario: <strong id="nombreTop"></strong></span>
+  <span>
+    <button type="button" onclick="window.location.href='inicio.html'">Inicio</button>
+    <button type="button" id="btnSalir">Salir</button>
+  </span>
+</div>
+  <div class="card">
+    <h1>Registrar pedido chequeado</h1>
+    <form id="formPedido">
+      <div class="form-group">
+        <label for="codigo">Código del pedido</label>
+        <input type="text" id="codigo" required autofocus autocomplete="off" placeholder="Nº de factura">
+      </div>
+      <div class="form-group">
+        <label>Tipo de pedido</label>
+        <div class="tipos">
+          <label class="tipo"><input type="radio" name="tipo" value="OUT" checked><span>OUT</span></label>
+          <label class="tipo"><input type="radio" name="tipo" value="POP"><span>POP</span></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ferreteria">Ferretería (RIF o nombre)</label>
+        <input type="text" id="ferreteria" autocomplete="off" placeholder="Escribe para buscar">
+        <ul id="resultados" class="resultados"></ul>
+        <div id="destino" class="destino"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="bultos">Cantidad de bultos</label>
+        <input type="number" id="bultos" required min="1" inputmode="numeric" placeholder="0">
+      </div>
+
+      <div class="form-group">
+        <label for="fecha">Fecha</label>
+        <input type="text" id="fecha" readonly>
+      </div>
+
+      <div class="form-group">
+        <label for="chequeador">Chequeador</label>
+        <input type="text" id="chequeador" readonly>
+      </div>
+
+      <div class="form-group">
+        <label for="nota">Nota (opcional)</label>
+        <textarea id="nota" maxlength="255"></textarea>
+      </div>
+
+      <button type="submit" class="btn">Registrar pedido</button>
+    </form>
+    <div id="mensaje" class="alert"></div>
+    <div class="resumen">Registrados en esta sesión: <strong id="totPedidos">0</strong> pedidos · <strong id="totBultos">0</strong> bultos</div>
+  </div>
+
+  <script>
+    const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null');
+    if (!usuario) { window.location.href = 'index.html'; }
+
+    const form = document.getElementById('formPedido');
+    const codigo = document.getElementById('codigo');
+    const ferreteriaInput = document.getElementById('ferreteria');
+    const resultados = document.getElementById('resultados');
+    const destino = document.getElementById('destino');
+    const bultos = document.getElementById('bultos');
+    const nota = document.getElementById('nota');
+    const mensaje = document.getElementById('mensaje');
+    let totalPedidos = 0, totalBultos = 0;
+    let ferreteriaSel = null;
+    let temporizador = null;
+
+    function rellenarFijos() {
+      document.getElementById('fecha').value = new Date().toLocaleString('es-VE');
+      document.getElementById('chequeador').value = usuario ? usuario.nombre : '';
+      document.getElementById('nombreTop').textContent = usuario ? usuario.nombre : '';
+    }
+    rellenarFijos();
+
+    function mostrar(tipo, texto) {
+      mensaje.className = 'alert alert-' + tipo;
+      mensaje.textContent = texto;
+      mensaje.style.display = 'block';
+    }
+
+    // Al escanear el código (el lector envía Enter), pasar a la ferretería
+    codigo.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); ferreteriaInput.focus(); }
+    });
+
+    // Buscador de ferretería
+    ferreteriaInput.addEventListener('input', function () {
+      ferreteriaSel = null;
+      destino.textContent = '';
+      clearTimeout(temporizador);
+      const q = ferreteriaInput.value.trim();
+      if (q.length < 2) { resultados.style.display = 'none'; return; }
+      temporizador = setTimeout(function () { buscarFerreterias(q); }, 250);
+    });
+
+    async function buscarFerreterias(q) {
+      try {
+        const res = await fetch('/api/ferreterias?q=' + encodeURIComponent(q));
+        const lista = await res.json();
+        resultados.innerHTML = '';
+        if (lista.length === 0) {
+          const li = document.createElement('li');
+          li.textContent = 'Sin resultados';
+          resultados.appendChild(li);
+        } else {
+          lista.forEach(function (f) {
+            const li = document.createElement('li');
+            li.textContent = f.razonSocial + ' — ' + f.rif;
+            li.addEventListener('click', function () { seleccionar(f); });
+            resultados.appendChild(li);
+          });
+        }
+        resultados.style.display = 'block';
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function seleccionar(f) {
+      ferreteriaSel = f;
+      ferreteriaInput.value = f.razonSocial + ' — ' + f.rif;
+      destino.textContent = 'Destino: ' + f.estadoRegion;
+      resultados.style.display = 'none';
+      bultos.focus();
+    }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (!ferreteriaSel) {
+        mostrar('danger', '✕ Selecciona una ferretería de la lista');
+        ferreteriaInput.focus();
+        return;
+      }
+      const destinoPedido = ferreteriaSel.estadoRegion;
+      try {
+        const res = await fetch('/api/pedidos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            codigo: codigo.value.trim(),
+            tipo: document.querySelector('input[name="tipo"]:checked').value,
+            idFerreteria: ferreteriaSel.id,
+            bultos: parseInt(bultos.value, 10),
+            nota: nota.value.trim() || null,
+            idChequeador: usuario.id
+            
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) { throw new Error(data.message || 'No se pudo registrar el pedido'); }
+
+        mostrar('success', '✓ Pedido ' + data.codigo + ' registrado (' + data.bultos + ' bultos) · Destino: ' + destinoPedido);
+        totalPedidos++;
+        totalBultos += data.bultos;
+        document.getElementById('totPedidos').textContent = totalPedidos;
+        document.getElementById('totBultos').textContent = totalBultos;
+        form.reset();
+        ferreteriaSel = null;
+        destino.textContent = '';
+        resultados.style.display = 'none';
+        rellenarFijos();
+        codigo.focus();
+      } catch (err) {
+        console.error(err);
+        mostrar('danger', '✕ ' + err.message);
+      }
+    });
+
+    document.getElementById('btnSalir').addEventListener('click', function () {
+      sessionStorage.removeItem('usuario');
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>

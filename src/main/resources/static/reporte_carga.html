@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Litani C.A. - Registro de Carga</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; margin: 0; padding: 0; }
+    body { background: #eef1f4; color: #111; padding: 20px; }
+    .barra { max-width: 900px; margin: 0 auto 14px; display: flex; gap: 8px; }
+    .barra button { padding: 10px 16px; border: 1px solid #888; background: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .barra button.p { background: #008ca5; color: #fff; border-color: #008ca5; font-weight: bold; }
+    .hoja { max-width: 900px; margin: 0 auto; background: #fff; padding: 28px 32px; border: 1px solid #ccd2d8; }
+    .enc { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+    .enc h1 { font-size: 20px; }
+    .enc .sub { font-size: 13px; color: #444; }
+    .enc .num { font-size: 22px; font-weight: bold; text-align: right; }
+    .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; font-size: 13px; margin-bottom: 16px; }
+    .datos b { display: inline-block; min-width: 92px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border: 1px solid #999; padding: 6px 7px; text-align: left; }
+    th { background: #e8ecef; font-size: 12px; text-transform: uppercase; }
+    td.n, th.n { text-align: right; }
+    tfoot td { font-weight: bold; background: #f3f5f7; }
+    .resumen { margin-top: 12px; font-size: 13px; }
+    .firmas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 60px; font-size: 12px; text-align: center; }
+    .firmas div { border-top: 1px solid #111; padding-top: 4px; }
+    .error { max-width: 900px; margin: 20px auto; padding: 14px; background: #fde8ea; border: 1px solid #e29aa3; border-radius: 6px; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .barra { display: none; }
+      .hoja { border: none; padding: 0; max-width: none; }
+      tr { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="barra">
+    <button type="button" class="p" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <button type="button" onclick="window.location.href='despacho.html'">Volver al despacho</button>
+  </div>
+
+  <div id="contenido"></div>
+
+  <script>
+    const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null');
+    if (!usuario) { window.location.href = 'index.html'; }
+
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    const contenido = document.getElementById('contenido');
+
+    function el(tag, clase, texto) {
+      const e = document.createElement(tag);
+      if (clase) { e.className = clase; }
+      if (texto !== undefined && texto !== null) { e.textContent = texto; }
+      return e;
+    }
+
+    function fecha(f) {
+      return f ? new Date(f).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+    }
+
+    function dato(contenedor, etiqueta, valor) {
+      const d = el('div');
+      d.appendChild(el('b', '', etiqueta));
+      d.appendChild(document.createTextNode(valor || '—'));
+      contenedor.appendChild(d);
+    }
+
+    async function cargar() {
+      try {
+        const res = await fetch('/api/cargas/' + id);
+        if (!res.ok) { throw new Error('HTTP ' + res.status); }
+        dibujar(await res.json());
+      } catch (err) {
+        console.error(err);
+        contenido.appendChild(el('div', 'error', '✕ No se pudo cargar el registro de la carga: ' + err.message));
+      }
+    }
+
+    function dibujar(d) {
+      const c = d.carga;
+      const t = d.totales;
+      const hoja = el('div', 'hoja');
+
+      const enc = el('div', 'enc');
+      const izq = el('div');
+      izq.appendChild(el('h1', '', 'LITANI C.A.'));
+      izq.appendChild(el('div', 'sub', 'Registro de carga de camión'));
+      enc.appendChild(izq);
+      const der = el('div', 'num', 'Carga Nº ' + String(c.id).padStart(4, '0'));
+      der.appendChild(el('div', 'sub', c.estado === 'CERRADA' ? 'FINALIZADA' : 'EN CURSO (borrador)'));
+      enc.appendChild(der);
+      hoja.appendChild(enc);
+
+      const datos = el('div', 'datos');
+      dato(datos, 'Camión:', c.camion);
+      dato(datos, 'Chofer:', c.chofer);
+      dato(datos, 'Inicio:', fecha(c.fechaInicio));
+      dato(datos, 'Cierre:', fecha(c.fechaCierre));
+      dato(datos, 'Creada por:', c.creadoPor);
+      dato(datos, 'Cerrada por:', c.cerradoPor);
+      hoja.appendChild(datos);
+
+      const tabla = el('table');
+      const cab = el('tr');
+      [['#', 'n'], ['Código / Factura', ''], ['Tipo', ''], ['Ferretería', ''], ['Ubicado en', ''], ['Bultos', 'n'], ['Hora', ''], ['Cargó', '']].forEach(function (x) {
+        cab.appendChild(el('th', x[1], x[0]));
+      });
+      const thead = el('thead');
+      thead.appendChild(cab);
+      tabla.appendChild(thead);
+
+      const tbody = el('tbody');
+      d.pedidos.forEach(function (p, i) {
+        const tr = el('tr');
+        tr.appendChild(el('td', 'n', i + 1));
+        tr.appendChild(el('td', '', p.codigo));
+        tr.appendChild(el('td', '', p.tipo));
+        tr.appendChild(el('td', '', p.ferreteria || '—'));
+        tr.appendChild(el('td', '', p.ubicacion || '—'));
+        tr.appendChild(el('td', 'n', p.bultos));
+        tr.appendChild(el('td', '', p.fechaCargado ? new Date(p.fechaCargado).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '—'));
+        tr.appendChild(el('td', '', p.cargadoPor || '—'));
+        tbody.appendChild(tr);
+      });
+      tabla.appendChild(tbody);
+
+      const tfoot = el('tfoot');
+      const ft = el('tr');
+      const tdTot = el('td', '', 'TOTAL · ' + t.pedidos + ' pedidos');
+      tdTot.colSpan = 5;
+      ft.appendChild(tdTot);
+      ft.appendChild(el('td', 'n', t.bultos));
+      const vacio = el('td');
+      vacio.colSpan = 2;
+      ft.appendChild(vacio);
+      tfoot.appendChild(ft);
+      tabla.appendChild(tfoot);
+      hoja.appendChild(tabla);
+
+      hoja.appendChild(el('div', 'resumen',
+        'OUT: ' + t.pedidosOut + ' pedidos / ' + t.bultosOut + ' bultos · POP: ' + t.pedidosPop + ' pedidos / ' + t.bultosPop + ' bultos'));
+
+      const firmas = el('div', 'firmas');
+      ['Chofer', 'Chequeador / Cargador', 'Supervisor'].forEach(function (x) { firmas.appendChild(el('div', '', x)); });
+      hoja.appendChild(firmas);
+
+      contenido.appendChild(hoja);
+
+      if (params.get('imprimir') === '1') { setTimeout(function () { window.print(); }, 500); }
+    }
+
+    cargar();
+  </script>
+</body>
+</html>

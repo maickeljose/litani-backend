@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Litani C.A. - Despacho de Camiones</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; }
+    body { background: linear-gradient(135deg, #182026 0%, #222e36 50%, #153745 100%); min-height: 100vh; padding: 16px; color: #fff; }
+    .topbar { max-width: 1100px; margin: 0 auto 16px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #9ba8b5; }
+    .topbar button { background: none; border: 1px solid #4a5a68; color: #9ba8b5; padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-left: 6px; }
+    .contenedor { max-width: 1100px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 14px; }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; margin-bottom: 16px; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+    .panel { background: #1e272e; border-radius: 12px; border-top: 4px solid #00a8c6; padding: 16px; box-shadow: 0 10px 25px rgba(0,0,0,.4); }
+    .panel.camion { border-top-color: #63e6be; }
+    .panel h2 { font-size: 16px; margin-bottom: 12px; }
+    input[type=text] { width: 100%; padding: 12px; background: #2c3842; border: 1px solid #4a5a68; border-radius: 6px; font-size: 16px; color: #fff; margin-bottom: 10px; }
+    input[type=text]:focus { outline: none; border-color: #00a8c6; box-shadow: 0 0 8px rgba(0,168,198,.4); }
+    label { display: block; font-size: 12px; color: #9ba8b5; margin-bottom: 4px; }
+    .btn { padding: 11px 16px; border: none; border-radius: 6px; background: linear-gradient(90deg, #008ca5, #00a8c6); color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; }
+    .btn.verde { background: linear-gradient(90deg, #1f9d7a, #2fbf94); }
+    .btn.gris { background: #3a4651; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .item { background: #2c3842; border: 2px solid #4a5a68; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+    .item .cod { font-weight: bold; font-size: 15px; }
+    .item .meta { font-size: 12px; color: #9ba8b5; margin-top: 2px; }
+    .ubic { margin-top: 6px; font-size: 18px; font-weight: bold; color: #63e6be; }
+    .ubic.no { font-size: 13px; font-weight: normal; color: #9ba8b5; }
+    .tag { display: inline-block; font-size: 10px; font-weight: bold; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+    .tag.POP { background: #7a4b00; color: #ffd27a; }
+    .tag.OUT { background: #12404d; color: #7fdcf0; }
+    .tag.CHEQUEADO { background: #3a3f46; color: #c9d1d9; }
+    .tag.UBICADO { background: #123d33; color: #63e6be; }
+    .tag.CARGADO { background: #2a2f6b; color: #b7bdff; }
+    .tag.ABIERTA { background: #123d33; color: #63e6be; }
+    .tag.CERRADA { background: #3a3f46; color: #c9d1d9; }
+    .vacio { text-align: center; color: #9ba8b5; font-size: 14px; padding: 14px 0; }
+    .totales { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .total { background: #2c3842; border-radius: 8px; padding: 8px 14px; font-size: 12px; color: #9ba8b5; }
+    .total b { display: block; font-size: 20px; color: #fff; }
+    .alert { padding: 10px; border-radius: 6px; font-size: 14px; display: none; text-align: center; margin-bottom: 12px; }
+    .alert-danger { background: #4a1d24; color: #ff8b8b; border: 1px solid #7d2a37; }
+    .alert-success { background: #123d33; color: #63e6be; border: 1px solid #1f6b57; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #2c3842; }
+    th { color: #9ba8b5; font-size: 12px; text-transform: uppercase; }
+    a.link { color: #00a8c6; text-decoration: none; }
+    .scroll { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span>Usuario: <strong id="nombreTop"></strong></span>
+    <span>
+      <button type="button" id="btnInicio">Inicio</button>
+      <button type="button" id="btnSalir">Salir</button>
+    </span>
+  </div>
+
+  <div class="contenedor">
+    <h1>Despacho de camiones</h1>
+    <div id="mensaje" class="alert"></div>
+
+    <div class="layout">
+      <!-- Carga del camión -->
+      <div class="panel camion" id="panelCarga"></div>
+
+      <!-- Buscar y cargar pedidos -->
+      <div class="panel">
+        <h2>Buscar pedido</h2>
+        <input type="text" id="buscar" placeholder="Escribe o escanea el código (nº de factura)" autocomplete="off" autofocus>
+        <div id="resultados"><div class="vacio">Escribe un código para empezar</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Historial de cargas</h2>
+      <div class="scroll" id="historial"></div>
+    </div>
+  </div>
+
+  <script>
+    const usuario = JSON.parse(sessionStorage.getItem('usuario') || 'null');
+    if (!usuario) { window.location.href = 'index.html'; }
+    document.getElementById('nombreTop').textContent = usuario ? usuario.nombre : '';
+
+    const panelCarga = document.getElementById('panelCarga');
+    const buscar = document.getElementById('buscar');
+    const resultados = document.getElementById('resultados');
+    const mensaje = document.getElementById('mensaje');
+
+    let activa = null;      // detalle de la carga abierta (o null)
+    let temporizador = null;
+
+    function el(tag, clase, texto) {
+      const e = document.createElement(tag);
+      if (clase) { e.className = clase; }
+      if (texto !== undefined && texto !== null) { e.textContent = texto; }
+      return e;
+    }
+
+    function mostrar(tipo, texto) {
+      mensaje.className = 'alert alert-' + tipo;
+      mensaje.textContent = texto;
+      mensaje.style.display = 'block';
+      if (tipo === 'success') { setTimeout(function () { mensaje.style.display = 'none'; }, 4000); }
+    }
+
+    function fecha(f) {
+      return f ? new Date(f).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    }
+
+    async function api(url, opciones, falla) {
+      const res = await fetch(url, opciones);
+      let data = null;
+      try { data = await res.json(); } catch (x) {}
+      if (!res.ok) { throw new Error((data && data.message) || (falla + ' (HTTP ' + res.status + ')')); }
+      return data;
+    }
+
+    function post(url, cuerpo) {
+      return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo || {}) };
+    }
+
+    // ---------- Panel de la carga ----------
+    function dibujarCarga() {
+      panelCarga.innerHTML = '';
+
+      if (!activa || !activa.carga) {
+        panelCarga.appendChild(el('h2', '', 'Nueva carga'));
+        panelCarga.appendChild(el('div', 'vacio', 'No hay una carga abierta. Crea una para empezar a cargar pedidos.'));
+
+        panelCarga.appendChild(el('label', '', 'Camión (placa o nombre) *'));
+        const camion = el('input');
+        camion.type = 'text';
+        camion.maxLength = 60;
+        panelCarga.appendChild(camion);
+
+        panelCarga.appendChild(el('label', '', 'Chofer (opcional)'));
+        const chofer = el('input');
+        chofer.type = 'text';
+        chofer.maxLength = 80;
+        panelCarga.appendChild(chofer);
+
+        const b = el('button', 'btn verde', 'Iniciar carga');
+        b.type = 'button';
+        b.addEventListener('click', async function () {
+          try {
+            await api('/api/cargas', post('/api/cargas', { camion: camion.value, chofer: chofer.value, idUsuario: usuario.id }), 'No se pudo crear la carga');
+            await refrescar();
+            buscar.focus();
+          } catch (err) { mostrar('danger', '✕ ' + err.message); }
+        });
+        panelCarga.appendChild(b);
+        return;
+      }
+
+      const c = activa.carga;
+      const t = activa.totales;
+
+      const h = el('h2', '', 'Carga en curso · ' + c.camion);
+      h.appendChild(el('span', 'tag ABIERTA', 'ABIERTA'));
+      panelCarga.appendChild(h);
+      panelCarga.appendChild(el('div', 'item', ''));
+      panelCarga.lastChild.appendChild(el('div', 'meta',
+        'Inicio: ' + fecha(c.fechaInicio) + ' · Creada por ' + (c.creadoPor || '—') + (c.chofer ? ' · Chofer: ' + c.chofer : '')));
+
+      const tot = el('div', 'totales');
+      [['Pedidos', t.pedidos], ['Bultos', t.bultos], ['OUT', t.pedidosOut], ['POP', t.pedidosPop]].forEach(function (x) {
+        const d = el('div', 'total', x[0]);
+        d.insertBefore(el('b', '', x[1]), d.firstChild);
+        tot.appendChild(d);
+      });
+      panelCarga.appendChild(tot);
+
+      if (activa.pedidos.length === 0) {
+        panelCarga.appendChild(el('div', 'vacio', 'Aún no hay pedidos en esta carga. Búscalos a la derecha y pulsa "Cargar al camión".'));
+      } else {
+        activa.pedidos.slice().reverse().forEach(function (p) {
+          const it = el('div', 'item');
+          const cod = el('div', 'cod', p.codigo + ' · ' + p.bultos + ' bultos');
+          cod.appendChild(el('span', 'tag ' + p.tipo, p.tipo));
+          it.appendChild(cod);
+          it.appendChild(el('div', 'meta', (p.ferreteria || 'Sin ferretería') + ' · ' + fecha(p.fechaCargado)));
+          panelCarga.appendChild(it);
+        });
+      }
+
+      const acc = el('div', 'acciones');
+      const fin = el('button', 'btn verde', 'Finalizar carga e imprimir');
+      fin.type = 'button';
+      fin.disabled = activa.pedidos.length === 0;
+      fin.addEventListener('click', async function () {
+        if (!confirm('¿Finalizar la carga de ' + c.camion + '? Se cerrará y se abrirá el registro para imprimir.')) { return; }
+        try {
+          const r = await api('/api/cargas/' + c.id + '/cerrar', post('', { idUsuario: usuario.id }), 'No se pudo finalizar');
+          window.location.href = 'reporte_carga.html?id=' + r.id + '&imprimir=1';
+        } catch (err) { mostrar('danger', '✕ ' + err.message); }
+      });
+      acc.appendChild(fin);
+
+      if (activa.pedidos.length === 0) {
+        const can = el('button', 'btn gris', 'Cancelar carga');
+        can.type = 'button';
+        can.addEventListener('click', async function () {
+          try {
+            await api('/api/cargas/' + c.id, { method: 'DELETE' }, 'No se pudo cancelar');
+            await refrescar();
+          } catch (err) { mostrar('danger', '✕ ' + err.message); }
+        });
+        acc.appendChild(can);
+      }
+      panelCarga.appendChild(acc);
+    }
+
+    // ---------- Historial ----------
+    function dibujarHistorial(lista) {
+      const cont = document.getElementById('historial');
+      cont.innerHTML = '';
+      if (lista.length === 0) { cont.appendChild(el('div', 'vacio', 'Todavía no hay cargas')); return; }
+
+      const t = el('table');
+      const cab = el('tr');
+      ['Nº', 'Camión', 'Chofer', 'Inicio', 'Cierre', 'Pedidos', 'Bultos', 'Estado', ''].forEach(function (x) { cab.appendChild(el('th', '', x)); });
+      t.appendChild(cab);
+
+      lista.forEach(function (c) {
+        const tr = el('tr');
+        [String(c.id).padStart(4, '0'), c.camion, c.chofer || '—', fecha(c.fechaInicio), fecha(c.fechaCierre) || '—', c.pedidos, c.bultos].forEach(function (v) {
+          tr.appendChild(el('td', '', v));
+        });
+        const e = el('td');
+        e.appendChild(el('span', 'tag ' + c.estado, c.estado));
+        tr.appendChild(e);
+        const l = el('td');
+        const a = el('a', 'link', c.estado === 'CERRADA' ? 'Imprimir' : 'Ver');
+        a.href = 'reporte_carga.html?id=' + c.id;
+        l.appendChild(a);
+        tr.appendChild(l);
+        t.appendChild(tr);
+      });
+      cont.appendChild(t);
+    }
+
+    // ---------- Búsqueda de pedidos ----------
+    function dibujarResultados(lista, texto) {
+      resultados.innerHTML = '';
+      if (lista.length === 0) {
+        resultados.appendChild(el('div', 'vacio', texto ? 'No se encontró ningún pedido con ese código' : 'Escribe un código para empezar'));
+        return;
+      }
+      lista.forEach(function (p) {
+        const card = el('div', 'item');
+        const cod = el('div', 'cod', p.codigo + ' · ' + p.bultos + ' bultos');
+        cod.appendChild(el('span', 'tag ' + p.tipo, p.tipo));
+        cod.appendChild(el('span', 'tag ' + p.situacion, p.situacion));
+        card.appendChild(cod);
+        card.appendChild(el('div', 'meta', (p.ferreteria || 'Sin ferretería') + ' · chequeado ' + fecha(p.fechaChequeo) + (p.nota ? ' · Nota: ' + p.nota : '')));
+
+        if (p.situacion === 'UBICADO' && p.fila) {
+          card.appendChild(el('div', 'ubic', (p.zona ? p.zona + ' · ' : '') + p.fila + ' · Estiva ' + p.estiva));
+          const b = el('button', 'btn', 'Cargar al camión');
+          b.type = 'button';
+          b.style.marginTop = '10px';
+          b.disabled = !(activa && activa.carga);
+          b.title = b.disabled ? 'Primero crea una nueva carga' : '';
+          b.addEventListener('click', function () { cargarPedido(p); });
+          card.appendChild(b);
+        } else if (p.situacion === 'CARGADO') {
+          card.appendChild(el('div', 'ubic no', 'Cargado el ' + fecha(p.fechaCargado)));
+        } else {
+          card.appendChild(el('div', 'ubic no', 'Aún sin ubicar'));
+        }
+        resultados.appendChild(card);
+      });
+    }
+
+    async function consultar() {
+      const q = buscar.value.trim();
+      if (!q) { dibujarResultados([], ''); return; }
+      try {
+        dibujarResultados(await api('/api/pedidos/buscar?q=' + encodeURIComponent(q), null, 'Error al buscar'), q);
+      } catch (err) { mostrar('danger', '✕ ' + err.message); }
+    }
+
+    async function cargarPedido(p) {
+      try {
+        const r = await api('/api/pedidos/' + p.id + '/cargar', post('', { idCargador: usuario.id }), 'No se pudo cargar el pedido');
+        mostrar('success', '✓ ' + r.message);
+        await refrescar();
+        await consultar();
+      } catch (err) { mostrar('danger', '✕ ' + err.message); }
+    }
+
+    async function refrescar() {
+      try {
+        activa = await api('/api/cargas/activa', null, 'No se pudo leer la carga');
+        dibujarCarga();
+        dibujarHistorial(await api('/api/cargas', null, 'No se pudo leer el historial'));
+        if (buscar.value.trim()) { consultar(); }
+      } catch (err) { mostrar('danger', '✕ ' + err.message); }
+    }
+
+    buscar.addEventListener('input', function () {
+      clearTimeout(temporizador);
+      temporizador = setTimeout(consultar, 250);
+    });
+
+    document.getElementById('btnInicio').addEventListener('click', function () { window.location.href = 'inicio.html'; });
+    document.getElementById('btnSalir').addEventListener('click', function () {
+      sessionStorage.removeItem('usuario');
+      window.location.href = 'index.html';
+    });
+
+    refrescar();
+  </script>
+</body>
+</html>
