@@ -1,6 +1,8 @@
--- =====================================================
--- litani_db: recreación completa
--- =====================================================
+-- =====================================================================
+-- Litani C.A. - Sistema de Bitácora Logística
+-- Script completo de la base de datos (estructura + datos de prueba)
+-- Motor: MySQL / MariaDB (InnoDB, utf8mb4)
+-- =====================================================================
 DROP DATABASE IF EXISTS litani_db;
 CREATE DATABASE litani_db CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE litani_db;
@@ -41,10 +43,13 @@ CREATE TABLE ferreterias (
   UNIQUE KEY uq_ferreterias_rif (rif)
 ) ENGINE=InnoDB;
 
--- ---------- FILAS Y ESTIVAS (área de carga) ----------
+-- ---------- FILAS Y ESTIVAS (área de carga + zona Zulia) ----------
 CREATE TABLE filas (
-  id_fila INT NOT NULL AUTO_INCREMENT,
-  nombre  VARCHAR(50) NOT NULL,
+  id_fila            INT NOT NULL AUTO_INCREMENT,
+  nombre             VARCHAR(50)  NOT NULL,
+  estados_referencia VARCHAR(150) NULL,
+  zona               VARCHAR(50)  NOT NULL DEFAULT 'Área de carga',
+  orden              INT NOT NULL DEFAULT 0,
   PRIMARY KEY (id_fila),
   UNIQUE KEY uq_filas_nombre (nombre)
 ) ENGINE=InnoDB;
@@ -53,17 +58,34 @@ CREATE TABLE estivas (
   id_estiva        INT NOT NULL AUTO_INCREMENT,
   numero_estiva    INT NOT NULL,
   id_fila          INT NOT NULL,
-  capacidad_maxima INT NOT NULL DEFAULT 100,  -- PROVISIONAL: se ajusta con la cifra real
+  capacidad_maxima INT NOT NULL DEFAULT 50,
   bultos_actuales  INT NOT NULL DEFAULT 0,
   PRIMARY KEY (id_estiva),
   UNIQUE KEY uq_estivas_fila_numero (id_fila, numero_estiva),
   CONSTRAINT fk_estivas_fila FOREIGN KEY (id_fila) REFERENCES filas (id_fila) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- ---------- CARGAS (viajes de camión) ----------
+CREATE TABLE cargas (
+  id_carga     BIGINT NOT NULL AUTO_INCREMENT,
+  camion       VARCHAR(60) NOT NULL,
+  chofer       VARCHAR(80) NULL,
+  estado       VARCHAR(10) NOT NULL DEFAULT 'ABIERTA',
+  fecha_inicio DATETIME NOT NULL,
+  fecha_cierre DATETIME NULL,
+  id_creador   INT NOT NULL,
+  id_cierre    INT NULL,
+  PRIMARY KEY (id_carga),
+  KEY idx_cargas_estado (estado),
+  CONSTRAINT fk_cargas_creador FOREIGN KEY (id_creador) REFERENCES usuarios (id_usuario),
+  CONSTRAINT fk_cargas_cierre  FOREIGN KEY (id_cierre)  REFERENCES usuarios (id_usuario)
+) ENGINE=InnoDB;
+
 -- ---------- PEDIDOS ----------
 CREATE TABLE pedidos (
   id_pedido     INT NOT NULL AUTO_INCREMENT,
   codigo        VARCHAR(30) NOT NULL,
+  tipo          VARCHAR(10) NOT NULL DEFAULT 'OUT',
   id_ferreteria INT NOT NULL,
   bultos        INT NOT NULL,
   fecha_chequeo DATETIME NOT NULL,
@@ -73,37 +95,121 @@ CREATE TABLE pedidos (
   fecha_ubicado DATETIME DEFAULT NULL,
   id_ubicador   INT DEFAULT NULL,
   id_estiva     INT DEFAULT NULL,
+  fecha_cargado DATETIME DEFAULT NULL,
+  id_carga      BIGINT DEFAULT NULL,
+  id_cargador   INT DEFAULT NULL,
   PRIMARY KEY (id_pedido),
   UNIQUE KEY uq_pedidos_codigo (codigo),
   KEY idx_pedidos_chequeador_fecha (id_chequeador, fecha_chequeo),
   KEY idx_pedidos_fecha (fecha_chequeo),
   KEY idx_pedidos_situacion (situacion),
+  KEY idx_pedidos_carga (id_carga),
   CONSTRAINT fk_pedidos_ferreteria FOREIGN KEY (id_ferreteria) REFERENCES ferreterias (id_ferreteria),
   CONSTRAINT fk_pedidos_chequeador FOREIGN KEY (id_chequeador) REFERENCES usuarios (id_usuario),
   CONSTRAINT fk_pedidos_ubicador   FOREIGN KEY (id_ubicador)   REFERENCES usuarios (id_usuario),
-  CONSTRAINT fk_pedidos_estiva     FOREIGN KEY (id_estiva)     REFERENCES estivas (id_estiva)
+  CONSTRAINT fk_pedidos_estiva     FOREIGN KEY (id_estiva)     REFERENCES estivas (id_estiva),
+  CONSTRAINT fk_pedidos_carga      FOREIGN KEY (id_carga)      REFERENCES cargas (id_carga),
+  CONSTRAINT fk_pedidos_cargador   FOREIGN KEY (id_cargador)   REFERENCES usuarios (id_usuario)
 ) ENGINE=InnoDB;
 
--- =====================================================
--- DATOS INICIALES
--- =====================================================
+-- =====================================================================
+-- DATOS
+-- =====================================================================
 INSERT INTO roles (id_rol, nombre_rol) VALUES
 (1, 'Organizador'), (2, 'Chequeador'), (3, 'Supervisor'), (4, 'Soporte');
 
+-- Usuarios de prueba (claves en texto plano: soporte = admin123, el resto = 123456)
 INSERT INTO usuarios (id_usuario, cedula, nombre_completo, nombre_usuario, clave_hash, id_rol) VALUES
-(1, 'V-00000000', 'Soporte Técnico',   'soporte',       'admin123', 4),
-(2, 'V-11111111', 'Operador Almacén',  'chequeador_01', '123456',   2);
+(1,  'V-00000000', 'Soporte Técnico',     'soporte',        'admin123', 4),
+(2,  'V-11111111', 'Operador Almacén',    'chequeador_01',  '123456',   2),
+(3,  'V-21000002', 'Luis Fernández',      'chequeador_02',  '123456',   2),
+(4,  'V-21000003', 'María González',      'chequeador_03',  '123456',   2),
+(5,  'V-21000004', 'José Ramírez',        'chequeador_04',  '123456',   2),
+(6,  'V-21000005', 'Carla Mendoza',       'chequeador_05',  '123456',   2),
+(7,  'V-21000006', 'Pedro Rojas',         'chequeador_06',  '123456',   2),
+(8,  'V-22000001', 'Andrea Paredes',      'organizador_01', '123456',   1),
+(9,  'V-22000002', 'Carlos Salazar',      'organizador_02', '123456',   1),
+(10, 'V-22000003', 'Daniela Useche',      'organizador_03', '123456',   1),
+(11, 'V-22000004', 'Miguel Briceño',      'organizador_04', '123456',   1),
+(12, 'V-22000005', 'Rosa Colmenares',     'organizador_05', '123456',   1),
+(13, 'V-23000001', 'Soporte Secundario',  'soporte_02',     '123456',   4);
 
+-- Ferreterías de prueba (2 originales + 43 repartidas en 24 estados)
 INSERT INTO ferreterias (rif, razon_social, direccion, estado_region) VALUES
 ('J-12345678-0', 'Ferretería El Candado C.A.', 'Av. Principal Calle 4',   'Zulia'),
-('J-87654321-9', 'Materiales San José',        'Zona Industrial Lote 12', 'Zulia');
+('J-87654321-9', 'Materiales San José',        'Zona Industrial Lote 12', 'Zulia'),
+('J-30501371-1', 'Materiales Santa Rita C.A.', 'Av. 5 de Julio, Maracaibo', 'Zulia'),,
+('J-30502742-2', 'Distribuidora El Maestro C.A.', 'Av. Intercomunal, Cabimas', 'Zulia'),,
+('J-30504113-3', 'Ferre Mi Casa C.A.', 'Av. Principal Sur, San Francisco', 'Zulia'),,
+('J-30505484-4', 'Tornillos y Santa Elena C.A.', 'Av. Bolívar, Ciudad Ojeda', 'Zulia'),,
+('J-30506855-5', 'Construcciones El Obrero C.A.', 'Av. Jesús Enrique Lossada, Punto Fijo', 'Falcón'),,
+('J-30508226-6', 'Suministros El Arado C.A.', 'Av. Los Médanos, Coro', 'Falcón'),,
+('J-30509597-7', 'Comercial San José C.A.', 'Av. Vargas, Barquisimeto', 'Lara'),,
+('J-30510968-8', 'Ferretería El Martillo C.A.', 'Av. Intercomunal, Cabudare', 'Lara'),,
+('J-30512339-9', 'Materiales Los Hermanos C.A.', 'Av. Carvajal, Valera', 'Trujillo'),,
+('J-30513710-0', 'Distribuidora El Pilar C.A.', 'Av. Independencia, Trujillo', 'Trujillo'),,
+('J-30515081-1', 'Ferre La Palma C.A.', 'Av. Las Américas, Mérida', 'Mérida'),,
+('J-30516452-2', 'Tornillos y Rio Claro C.A.', 'Av. Bolívar, El Vigía', 'Mérida'),,
+('J-30517823-3', 'Construcciones La Roca C.A.', 'Av. Carabobo, San Cristóbal', 'Táchira'),,
+('J-30519194-4', 'Suministros La Esperanza C.A.', 'Calle 8, Rubio', 'Táchira'),,
+('J-30520565-5', 'Comercial Central C.A.', 'Av. Industrial, Barinas', 'Barinas'),,
+('J-30521936-6', 'Ferretería Bolívar C.A.', 'Calle Real, Socopó', 'Barinas'),,
+('J-30523307-7', 'Materiales Maracay C.A.', 'Av. Unda, Guanare', 'Portuguesa'),,
+('J-30524678-8', 'Distribuidora El Ingeniero C.A.', 'Av. Libertador, Acarigua', 'Portuguesa'),,
+('J-30526049-9', 'Ferre Las Palmas C.A.', 'Av. 15, San Felipe', 'Yaracuy'),,
+('J-30527420-0', 'Tornillos y El Sembrador C.A.', 'Calle 6, Yaritagua', 'Yaracuy'),,
+('J-30528791-1', 'Construcciones El Constructor C.A.', 'Av. Bolívar Norte, Valencia', 'Carabobo'),,
+('J-30530162-2', 'Suministros Siglo XXI C.A.', 'Av. Salom, Puerto Cabello', 'Carabobo'),,
+('J-30531533-3', 'Comercial El Sol C.A.', 'Zona Industrial, Guacara', 'Carabobo'),,
+('J-30532904-4', 'Ferretería El Roble C.A.', 'Av. Constitución, Maracay', 'Aragua'),,
+('J-30534275-5', 'Materiales Costa Azul C.A.', 'Av. Ribas, La Victoria', 'Aragua'),,
+('J-30535646-6', 'Distribuidora La Mina C.A.', 'Av. Bermúdez, Los Teques', 'Miranda'),,
+('J-30537017-7', 'Ferre Oriente C.A.', 'Av. Intercomunal, Guarenas', 'Miranda'),,
+('J-30538388-8', 'Tornillos y Los Andes C.A.', 'Av. Fuerzas Armadas, Caracas', 'Distrito Capital'),,
+('J-30539759-9', 'Construcciones El Progreso C.A.', 'Av. Baralt, Caracas', 'Distrito Capital'),,
+('J-30541130-0', 'Suministros La Frontera C.A.', 'Av. Soublette, Maiquetía', 'La Guaira'),,
+('J-30542501-1', 'Comercial La Cumbre C.A.', 'Av. Intercomunal, Barcelona', 'Anzoátegui'),,
+('J-30543872-2', 'Ferretería Andina C.A.', 'Av. Municipal, Puerto La Cruz', 'Anzoátegui'),,
+('J-30545243-3', 'Materiales El Cardón C.A.', 'Av. Bolívar, Maturín', 'Monagas'),,
+('J-30546614-4', 'Distribuidora Occidente C.A.', 'Av. Guayana, Puerto Ordaz', 'Bolívar'),,
+('J-30547985-5', 'Ferre El Tornillo C.A.', 'Av. Táchira, Ciudad Bolívar', 'Bolívar'),,
+('J-30549356-6', 'Tornillos y La Llave C.A.', 'Av. Humboldt, Cumaná', 'Sucre'),,
+('J-30550727-7', 'Construcciones Nueva Era C.A.', 'Av. Intercomunal, San Fernando de Apure', 'Apure'),,
+('J-30552098-8', 'Suministros El Faro C.A.', 'Av. Bolívar, San Juan de los Morros', 'Guárico'),,
+('J-30553469-9', 'Comercial El Llano C.A.', 'Calle 5, Calabozo', 'Guárico'),,
+('J-30554840-0', 'Ferretería El Puente C.A.', 'Av. Libertador, San Carlos', 'Cojedes'),,
+('J-30556211-1', 'Materiales Los Samanes C.A.', 'Av. 4 de Mayo, Porlamar', 'Nueva Esparta'),,
+('J-30557582-2', 'Distribuidora La Unión C.A.', 'Av. Río Negro, Puerto Ayacucho', 'Amazonas'),,
+('J-30558953-3', 'Ferre Don Pedro C.A.', 'Av. Perimetral, Tucupita', 'Delta Amacuro');
 
--- 9 filas con 10 estivas cada una
-INSERT INTO filas (nombre) VALUES
-('Fila 1'),('Fila 2'),('Fila 3'),('Fila 4'),('Fila 5'),('Fila 6'),('Fila 7'),('Fila 8'),('Fila 9');
+-- Filas: 9 filas del área de carga (Fila 9 arriba ... Fila 1 abajo) + zona Zulia
+-- Los estados de referencia son un EJEMPLO: cámbialos por los reales con UPDATE.
+INSERT INTO filas (nombre, estados_referencia, zona, orden) VALUES
+('Fila 1', 'Zulia, Falcón',                         'Área de carga', 9),
+('Fila 2', 'Lara, Trujillo, Yaracuy',               'Área de carga', 8),
+('Fila 3', 'Mérida, Táchira, Barinas',              'Área de carga', 7),
+('Fila 4', 'Portuguesa, Cojedes, Guárico',          'Área de carga', 6),
+('Fila 5', 'Carabobo, Aragua',                      'Área de carga', 5),
+('Fila 6', 'Distrito Capital, Miranda, La Guaira',  'Área de carga', 4),
+('Fila 7', 'Anzoátegui, Monagas, Sucre',            'Área de carga', 3),
+('Fila 8', 'Bolívar, Delta Amacuro, Amazonas',      'Área de carga', 2),
+('Fila 9', 'Apure, Nueva Esparta',                  'Área de carga', 1),
+('Maracaibo', NULL, 'Zulia', 10),
+('Newton',    NULL, 'Zulia', 11);
 
-INSERT INTO estivas (numero_estiva, id_fila)
-SELECT n.num, f.id_fila
+-- 10 estivas por fila (110 en total), capacidad 50 bultos
+INSERT INTO estivas (numero_estiva, id_fila, capacidad_maxima)
+SELECT n.num, f.id_fila, 50
 FROM filas f
 CROSS JOIN (SELECT 1 AS num UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5
-            UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10) n;
+            UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10) n
+ORDER BY f.id_fila, n.num;
+
+-- =====================================================================
+-- COMPROBACIÓN (deben salir 4, 13, 45, 11 y 110)
+-- =====================================================================
+SELECT COUNT(*) AS roles      FROM roles;
+SELECT COUNT(*) AS usuarios   FROM usuarios;
+SELECT COUNT(*) AS ferreterias FROM ferreterias;
+SELECT COUNT(*) AS filas      FROM filas;
+SELECT COUNT(*) AS estivas    FROM estivas;
