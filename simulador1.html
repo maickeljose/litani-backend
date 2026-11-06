@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador del problema focal - Litani C.A.</title>
+<style>
+  :root {
+    --bg: #141c21; --panel: #1e272e; --panel2: #2c3842; --line: #3a4a56;
+    --txt: #e6edf2; --mute: #9ba8b5; --acc: #00a8c6; --bad: #ff6b6b; --ok: #2fbf94; --warn: #e0a030;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body { background: linear-gradient(135deg, #182026 0%, #222e36 50%, #153745 100%); color: var(--txt); min-height: 100vh; padding: 14px; }
+  header, main { max-width: 1280px; margin: 0 auto; }
+  header { margin-bottom: 10px; }
+  header h1 { font-size: 22px; }
+  header p { font-size: 13px; color: var(--mute); margin-top: 2px; }
+  .focal { background: var(--panel); border-radius: 10px; border-left: 5px solid var(--bad); padding: 12px 16px; margin-bottom: 12px; }
+  .focal h2 { font-size: 13px; color: var(--bad); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+  .focal p { font-size: 15px; line-height: 1.45; }
+  .focal details { margin-top: 8px; font-size: 13px; color: #cbd5dd; }
+  .focal summary { cursor: pointer; color: var(--mute); }
+  .focal .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 6px; }
+  @media (max-width: 800px) { .focal .dos { grid-template-columns: 1fr; } }
+  .focal ul { margin-left: 18px; line-height: 1.5; }
+  .focal h3 { font-size: 12px; text-transform: uppercase; color: var(--mute); margin-bottom: 2px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .toolbar button, .toolbar select { background: var(--panel2); color: var(--txt); border: 1px solid var(--line); padding: 9px 14px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+  .toolbar button.main { background: linear-gradient(90deg, #008ca5, #00a8c6); border-color: transparent; font-weight: bold; min-width: 120px; }
+  .toolbar button:hover { border-color: var(--acc); }
+  .toolbar label { font-size: 13px; color: var(--mute); display: flex; align-items: center; gap: 6px; }
+  .clock { margin-left: auto; font-size: 22px; font-weight: bold; font-variant-numeric: tabular-nums; background: var(--panel); border: 1px solid var(--line); padding: 4px 14px; border-radius: 6px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .tabs button { background: var(--panel2); color: var(--mute); border: 1px solid var(--line); padding: 9px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+  .tabs button.act { color: #fff; font-weight: 600; }
+  .tabs button[data-v="excel"].act { background: #4a1d24; border-color: var(--bad); }
+  .tabs button[data-v="sistema"].act { background: #123d33; border-color: var(--ok); }
+  .tabs button[data-v="ambos"].act { background: #12404d; border-color: var(--acc); }
+  details.panel { background: var(--panel); border-radius: 10px; border-top: 3px solid var(--acc); padding: 10px 14px; margin-bottom: 10px; }
+  details.panel summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+  .params { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 18px; margin-top: 10px; }
+  .param label { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); margin-bottom: 2px; gap: 6px; }
+  .param label b { color: var(--txt); font-variant-numeric: tabular-nums; }
+  .param input[type=range] { width: 100%; accent-color: var(--acc); }
+  .param select, .param input[type=number] { width: 100%; background: var(--panel2); color: var(--txt); border: 1px solid var(--line); border-radius: 6px; padding: 6px; font-size: 13px; }
+  .hint { font-size: 12px; color: var(--mute); margin-top: 8px; }
+  .etapas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+  @media (max-width: 900px) { .etapas { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 520px) { .etapas { grid-template-columns: 1fr; } }
+  .etapa { background: var(--panel); border-radius: 10px; border-top: 3px solid var(--acc); padding: 9px 12px; }
+  .etapa.mal { border-top-color: var(--bad); }
+  .etapa .n { font-size: 11px; color: var(--mute); text-transform: uppercase; }
+  .etapa h3 { font-size: 14px; margin: 1px 0 4px; }
+  .etapa p { font-size: 12.5px; line-height: 1.5; color: #cbd5dd; }
+  .etapa p b { color: #fff; font-variant-numeric: tabular-nums; }
+  .escena { margin-bottom: 8px; }
+  .escena .tit { font-size: 13px; font-weight: 600; margin: 0 2px 4px; }
+  .escena .tit.e { color: var(--bad); } .escena .tit.s { color: var(--ok); }
+  .canvaswrap { position: relative; background: #10171c; border-radius: 10px; border: 1px solid var(--line); overflow: hidden; }
+  canvas.esc { display: block; width: 100%; height: auto; }
+  #tip { position: fixed; pointer-events: none; background: rgba(10,15,18,.96); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px; line-height: 1.4; display: none; max-width: 270px; z-index: 20; }
+  #fin { position: fixed; inset: 0; background: rgba(8,12,15,.78); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 30; }
+  #fin .caja { background: var(--panel); border: 1px solid var(--acc); border-radius: 12px; padding: 20px 24px; max-width: 520px; }
+  #fin h2 { font-size: 19px; margin-bottom: 8px; }
+  #fin p { font-size: 14px; color: #cbd5dd; margin-bottom: 8px; line-height: 1.5; }
+  #fin .bts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  #fin button { background: var(--panel2); color: #fff; border: 1px solid var(--line); padding: 9px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  #fin button.p { background: linear-gradient(90deg, #008ca5, #00a8c6); border-color: transparent; }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--mute); margin: 6px 2px 12px; }
+  .leyenda span i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .leyenda span i.sq { border-radius: 2px; }
+  .grid2 { display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px; margin-bottom: 12px; }
+  @media (max-width: 1000px) { .grid2 { grid-template-columns: 1fr; } }
+  .box { background: var(--panel); border-radius: 10px; border-top: 3px solid var(--acc); padding: 12px 14px; overflow-x: auto; }
+  .box h2 { font-size: 14px; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 6px 6px; border-bottom: 1px solid #2a3640; text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; white-space: normal; }
+  th { color: var(--mute); font-weight: 600; font-size: 11.5px; text-transform: uppercase; }
+  td.e { color: #ff9c9c; } td.s { color: #7fe3c3; }
+  .bueno { color: var(--ok); font-weight: 600; } .malo { color: var(--bad); font-weight: 600; }
+  #chart { width: 100%; height: auto; display: block; }
+  #log { list-style: none; font-size: 12px; max-height: 270px; overflow-y: auto; }
+  #log li { padding: 3px 0; border-bottom: 1px solid #26323a; }
+  #log li b { color: var(--acc); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  #log li.err { color: #ff9c9c; }
+  .notas { background: var(--panel); border-radius: 10px; padding: 10px 14px; font-size: 13px; line-height: 1.55; color: #cbd5dd; }
+  .notas summary { cursor: pointer; font-weight: 600; color: var(--txt); }
+  .notas h3 { font-size: 13px; margin: 10px 0 3px; color: var(--txt); }
+  .notas ul { margin-left: 18px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Simulador del proceso de almacén · Litani C.A.</h1>
+  <p>Flujo actual con hojas de Excel frente a la propuesta con el sistema. Los dos corren al mismo tiempo, con los mismos pedidos.</p>
+</header>
+
+<main>
+  <section class="focal">
+    <h2>Problema focal</h2>
+    <p>Deficiente control y trazabilidad de los pedidos por el registro manual en Excel, en computadoras centrales a las que el personal debe trasladarse, lo que genera interrupciones, errores en la carga y datos poco confiables para evaluar el rendimiento.</p>
+    <details>
+      <summary>Ver causas y efectos</summary>
+      <div class="dos">
+        <div>
+          <h3>Causas</h3>
+          <ul>
+            <li>Registro por autoservicio en una computadora central, sin validación.</li>
+            <li>El personal debe dejar el piso para registrar el pedido y su ubicación.</li>
+            <li>Hojas de Excel separadas por etapa, sin control de códigos repetidos o mal escritos.</li>
+            <li>El equipo de carga busca la ubicación en la hoja de los organizadores.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Efectos</h3>
+          <ul>
+            <li>Tiempo perdido en traslados y colas, y menor productividad.</li>
+            <li>Casillas vacías, códigos erróneos y duplicados que retrasan la carga.</li>
+            <li>Camiones que esperan más tiempo en el muelle.</li>
+            <li>Un rendimiento por trabajador mal medido, que afecta ajustes y bonificaciones.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <div class="toolbar">
+    <button class="main" id="btnPlay" type="button">▶ Iniciar</button>
+    <button id="btnStep" type="button" title="Avanza 1 minuto de simulación">⏭ +1 min</button>
+    <button id="btnReset" type="button">↺ Reiniciar</button>
+    <label>Velocidad
+      <select id="speed">
+        <option value="1">1×</option><option value="5">5×</option><option value="10">10×</option>
+        <option value="30" selected>30×</option><option value="60">60×</option><option value="120">120×</option>
+        <option value="300">300×</option><option value="600">600×</option>
+      </select>
+    </label>
+    <button id="btnCsv" type="button">⬇ Resultados (CSV)</button>
+    <div class="clock" id="clock">00:00:00</div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button type="button" data-v="excel" class="act">Situación actual (Excel)</button>
+    <button type="button" data-v="sistema">Propuesta (sistema Litani)</button>
+    <button type="button" data-v="ambos">Ver los dos</button>
+  </div>
+
+  <details class="panel">
+    <summary>Parámetros de la simulación</summary>
+    <div class="params" id="params"></div>
+    <p class="hint">Al mover un parámetro la simulación se reinicia. Los dos escenarios usan los mismos pedidos, bultos y tiempos de chequeo, así que la comparación es justa. En la propuesta, el registro se hace en el piso con un dispositivo (10 s al chequear, 6 s al ubicar, 4 s al buscar) y el sistema valida los códigos.</p>
+  </details>
+
+  <div class="etapas" id="etapas"></div>
+
+  <div id="escenas"></div>
+
+  <div class="leyenda">
+    <span><i style="background:#4da3ff"></i>Chequeador</span>
+    <span><i style="background:#a78bfa"></i>Organizador</span>
+    <span><i style="background:#ff9f43"></i>Cargador</span>
+    <span><i style="background:#ff7eb6"></i>Supervisor</span>
+    <span><i class="sq" style="background:#00a8c6"></i>Pedido OUT</span>
+    <span><i class="sq" style="background:#e0a030"></i>Pedido POP</span>
+    <span>En las pantallas de Excel: <i class="sq" style="background:#2fbf94"></i>correcto <i class="sq" style="background:#ff6b6b"></i>código mal escrito <i class="sq" style="background:#e0a030"></i>duplicado <i class="sq" style="background:#6b7a86"></i>casilla vacía</span>
+  </div>
+
+  <div class="grid2">
+    <div class="box">
+      <h2>Comparación en vivo</h2>
+      <table id="cmp"></table>
+    </div>
+    <div class="box">
+      <h2>Pedidos en proceso (llegados y sin cargar)</h2>
+      <canvas id="chart" width="560" height="300"></canvas>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="box">
+      <h2 id="infTit">Informe del supervisor al cierre</h2>
+      <table id="inf"></table>
+      <p class="hint" id="infNota"></p>
+    </div>
+    <div class="box">
+      <h2 id="logTit">Registro de eventos</h2>
+      <ul id="log"></ul>
+    </div>
+  </div>
+
+  <details class="notas">
+    <summary>Cómo funciona el modelo (para el informe)</summary>
+    <h3>Las cuatro etapas del flujo</h3>
+    <ul>
+      <li><b>Culminación y registro inicial:</b> el chequeador termina el control físico, deja su trabajo, camina hasta la computadora central, espera su turno y registra código, ferretería, bultos y usuario en Excel. Luego regresa.</li>
+      <li><b>Ubicación en estiva:</b> el organizador lleva el pedido a una estiva y camina hasta otra estación para anotar la ubicación en otra hoja de Excel, sin validación de duplicados ni de códigos.</li>
+      <li><b>Despacho y carga:</b> el cargador va a la estación de los organizadores, busca el código en Excel y encuentra la ubicación, o un error, un duplicado o una casilla vacía. En esos casos tiene que buscar el pedido a pie por el área de carga.</li>
+      <li><b>Consolidación gerencial:</b> al cierre, el supervisor consolida las hojas con fórmulas. Los errores de registro hacen que el rendimiento que ve no coincida con el real.</li>
+    </ul>
+    <h3>Propuesta</h3>
+    <ul>
+      <li>Cada persona registra en el piso con un dispositivo, sin desplazarse. El sistema impide códigos repetidos o inexistentes, la ubicación queda guardada al instante y el supervisor ve el rendimiento en tiempo real.</li>
+    </ul>
+    <h3>Recursos y aleatoriedad</h3>
+    <ul>
+      <li>Las computadoras de Excel son recursos de un solo usuario con cola. Es una simulación basada en agentes con reloj discreto (Δt = 0,5 s).</li>
+      <li>Llegadas exponenciales; bultos con distribución triangular (3, 12, máximo); chequeo y registro con distribución normal truncada. La semilla fija permite repetir cada experimento.</li>
+      <li>Errores de registro: si el código se escribe mal o queda repetido, esa fila no sirve para atribuir el trabajo. Una ubicación no registrada o con error obliga al cargador a buscar a pie (1 a 3 estivas equivocadas antes de la correcta).</li>
+    </ul>
+    <h3>Supuestos a validar</h3>
+    <ul>
+      <li>Los valores por defecto (tiempos, porcentajes de error, velocidad al caminar, 1 px = 0,1 m) son <b>supuestos de ejemplo</b>. Para el informe conviene reemplazarlos por mediciones cronometradas en el almacén.</li>
+      <li>Consolidación del supervisor: se estima en 30 min más 1 min por cada 4 registros con problema (verificar y corregir). Es un supuesto, ajustable en el código.</li>
+      <li>No se modelan colisiones entre personas ni descansos.</li>
+    </ul>
+  </details>
+</main>
+
+<div id="tip"></div>
+<div id="fin"><div class="caja">
+  <h2>Jornada terminada</h2>
+  <div id="finTxt"></div>
+  <div class="bts">
+    <button type="button" class="p" id="btnFinCsv">Descargar resultados (CSV)</button>
+    <button type="button" id="btnFinCerrar">Ver los resultados</button>
+  </div>
+</div></div>
+
+<script>
+'use strict';
+
+/* ====================== constantes y utilidades ====================== */
+const $ = (id) => document.getElementById(id);
+const W = 1180, H = 620, DT = 0.5;
+const CL = 297, CR = 859, ROAD = 438;          // pasillos verticales y camino horizontal
+const TY = 182, TRX = 922;                      // punto de carga del camión
+const C = {
+  floor: '#1a242b', zone: '#222f37', line: '#3a4a56', text: '#d6dfe6', mute: '#8fa0ad',
+  out: '#00a8c6', pop: '#e0a030', chq: '#4da3ff', org: '#a78bfa', car: '#ff9f43', sup: '#ff7eb6',
+  ok: '#2fbf94', mal: '#ff6b6b', dup: '#e0a030', vacia: '#6b7a86'
+};
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const expoR = (r, media) => -media * Math.log(1 - r());
+function normalR(r, media, sd) {
+  const u = 1 - r(), v = r();
+  return media + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function triR(r, a, c, b) {
+  const u = r(), F = (c - a) / (b - a);
+  return u < F ? a + Math.sqrt(u * (b - a) * (c - a)) : b - Math.sqrt((1 - u) * (b - a) * (b - c));
+}
+const pad = (n, l) => String(n).padStart(l, '0');
+function hms(t) {
+  t = Math.floor(t);
+  return pad(Math.floor(t / 3600), 2) + ':' + pad(Math.floor(t % 3600 / 60), 2) + ':' + pad(t % 60, 2);
+}
+const f1 = (v) => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
+const f0 = (v) => String(Math.round(v));
+const fac = (p) => 'F-' + pad(p.id, 4);
+
+/* ====================== parámetros ====================== */
+const SPEC = [
+  { id: 'nChq',    label: 'Chequeadores',                          min: 1,   max: 6,   step: 1,   val: 4 },
+  { id: 'nOrg',    label: 'Organizadores',                         min: 1,   max: 5,   step: 1,   val: 3 },
+  { id: 'nCar',    label: 'Cargadores',                            min: 1,   max: 5,   step: 1,   val: 3 },
+  { id: 'rate',    label: 'Pedidos por hora',                      min: 10,  max: 120, step: 5,   val: 50 },
+  { id: 'tChq',    label: 'Chequeo físico de un pedido (s)',       min: 30,  max: 300, step: 10,  val: 100 },
+  { id: 'tReg',    label: 'Registro en Excel (s)',                 min: 15,  max: 120, step: 5,   val: 45 },
+  { id: 'pErrReg', label: 'Errores en el registro inicial (%)',    min: 0,   max: 30,  step: 1,   val: 8 },
+  { id: 'pErrUbi', label: 'Errores en el registro de ubicación (%)', min: 0, max: 40,  step: 1,   val: 15 },
+  { id: 'vel',     label: 'Velocidad al caminar (m/s)',            min: 0.8, max: 2,   step: 0.1, val: 1.2 },
+  { id: 'sBulto',  label: 'Carga al camión (s por bulto)',         min: 0.5, max: 4,   step: 0.5, val: 1.5 },
+  { id: 'bMax',    label: 'Bultos máximos por pedido',             min: 20,  max: 60,  step: 5,   val: 45 },
+  { id: 'pPop',    label: 'Pedidos POP (%)',                       min: 0,   max: 50,  step: 5,   val: 15 },
+  { id: 'nEst',    label: 'Cantidad de estivas',                   min: 6,   max: 15,  step: 1,   val: 15 },
+  { id: 'capEst',  label: 'Capacidad por estiva (bultos)',         min: 30,  max: 80,  step: 5,   val: 50 },
+  { id: 'capCam',  label: 'Capacidad del camión (bultos)',         min: 150, max: 800, step: 50,  val: 300 },
+  { id: 'tCambio', label: 'Cambio de camión (min)',                min: 1,   max: 20,  step: 1,   val: 5 }
+];
+
+function construirParametros() {
+  const cont = $('params');
+  SPEC.forEach((p) => {
+    const d = document.createElement('div');
+    d.className = 'param';
+    d.innerHTML = '<label><span>' + p.label + '</span><b id="v_' + p.id + '">' + p.val + '</b></label>' +
+      '<input type="range" id="' + p.id + '" min="' + p.min + '" max="' + p.max + '" step="' + p.step + '" value="' + p.val + '">';
+    cont.appendChild(d);
+    const inp = d.querySelector('input');
+    inp.addEventListener('input', () => { $('v_' + p.id).textContent = inp.value; });
+    inp.addEventListener('change', reiniciar);
+  });
+  const j = document.createElement('div');
+  j.className = 'param';
+  j.innerHTML = '<label><span>Duración de la jornada</span></label><select id="jornada">' +
+    '<option value="4">4 horas</option><option value="8" selected>8 horas</option><option value="12">12 horas</option><option value="0">Sin límite</option></select>';
+  cont.appendChild(j);
+  j.querySelector('select').addEventListener('change', reiniciar);
+  const s = document.createElement('div');
+  s.className = 'param';
+  s.innerHTML = '<label><span>Semilla aleatoria</span></label><input type="number" id="seed" value="2026" min="1" step="1">';
+  cont.appendChild(s);
+  s.querySelector('input').addEventListener('change', reiniciar);
+}
+
+function leerCfg() {
+  const g = (id) => +$(id).value;
+  return {
+    nChq: g('nChq'), nOrg: g('nOrg'), nCar: g('nCar'), rate: g('rate'), tChq: g('tChq'), tReg: g('tReg'),
+    pErrReg: g('pErrReg') / 100, pErrUbi: g('pErrUbi') / 100, vel: g('vel'), sBulto: g('sBulto'), bMax: g('bMax'),
+    pPop: g('pPop') / 100, nEst: g('nEst'), capEst: g('capEst'), capCam: g('capCam'), tCambio: g('tCambio') * 60,
+    jornada: g('jornada') * 3600, seed: Math.max(1, Math.floor(g('seed')) || 1)
+  };
+}
+
+/* ====================== generador compartido de pedidos ====================== */
+function crearGenerador(cfg) {
+  const r = mulberry32(cfg.seed), specs = [];
+  let t = 0;
+  function nuevo() {
+    t += expoR(r, 3600 / cfg.rate);
+    return {
+      t: t,
+      bultos: Math.max(1, Math.round(triR(r, 3, 12, cfg.bMax))),
+      tipo: r() < cfg.pPop ? 'POP' : 'OUT',
+      tCheck: Math.max(20, normalR(r, cfg.tChq, 0.25 * cfg.tChq))
+    };
+  }
+  return { get(i) { while (specs.length <= i) { specs.push(nuevo()); } return specs[i]; } };
+}
+
+/* ====================== estaciones y rutas ====================== */
+const PCS = {
+  A: { k: 'A', dx: 40,  opX: 85,  opY: 546, titulo: 'Computadora central', sub: 'registro inicial de pedidos' },
+  B: { k: 'B', dx: 430, opX: 475, opY: 546, titulo: 'Estación de ubicaciones', sub: 'Excel de los organizadores' }
+};
+function slotPos(st, k) {
+  const col = k % 7, fila = Math.floor(k / 7);
+  return [st.opX + 36 * (col + 1), st.opY - 22 * fila];
+}
+function corrCerca(x) { return Math.abs(x - CL) <= Math.abs(x - CR) ? CL : CR; }
+function rutaCaminoAEstiva(x, e) {      // desde un punto del camino (x, ROAD)
+  const a = Math.abs(x - CL) + Math.abs(CL - e.ax), b = Math.abs(x - CR) + Math.abs(CR - e.ax);
+  const c = a <= b ? CL : CR;
+  return [[c, ROAD], [c, e.ay], [e.ax, e.ay]];
+}
+function rutaPasilloAEstiva(px, py, e) {
+  if (Math.abs(py - e.ay) < 1) { return [[e.ax, e.ay]]; }
+  const c = corrCerca(px);
+  return [[c, py], [c, e.ay], [e.ax, e.ay]];
+}
+function rutaEstivaACamino(e, x) {
+  const c = corrCerca(e.ax);
+  return [[c, e.ay], [c, ROAD], [x, ROAD]];
+}
+
+/* ====================== simulación ====================== */
+const ADMIN = {
+  chq: ['ir_pc', 'cola', 'a_usar', 'usando', 'volver_pc', 'registrando_pda'],
+  org: ['ir_pc', 'cola', 'a_usar', 'usando', 'volver_pc', 'registrando_pda'],
+  car: ['ir_pc', 'cola', 'a_usar', 'usando', 'buscando_pda', 'bf_camino', 'bf_revisa']
+};
+const PROD = {
+  chq: ['chequeando'],
+  org: ['llevando', 'colocando', 'volver'],
+  car: ['camino_estiva', 'recogiendo', 'camino_camion', 'cargando', 'volver']
+};
+
+class Sim {
+  constructor(modo, cfg, gen) {
+    this.modo = modo; this.cfg = cfg; this.gen = gen;
+    this.r = mulberry32(cfg.seed * 7 + (modo === 'excel' ? 1 : 2));
+    this.t = 0; this.idx = 0; this.fin = false;
+    this.pedidos = []; this.cola = []; this.listos = [];
+    this.estivas = []; this.chq = []; this.org = []; this.car = [];
+    this.log = []; this.logSucio = true; this.serie = []; this.nextMuestra = 0;
+    this.pc = {
+      A: Object.assign({ user: null, cola: [], hist: [], sumEsp: 0, n: 0 }, PCS.A),
+      B: Object.assign({ user: null, cola: [], hist: [], sumEsp: 0, n: 0 }, PCS.B)
+    };
+    this.st = { maxCola: 0, excesos: 0, cargados: 0, bultosCarg: 0, camiones: 0, sumSis: 0, nSis: 0,
+                regs: 0, regsErr: 0, errMal: 0, errDup: 0, errVacia: 0, busq: 0, busqProb: 0,
+                sumMuelle: 0, nMuelle: 0, sumUbic: 0, nUbic: 0 };
+    const filas = 3;
+    for (let i = 0; i < cfg.nEst; i++) {
+      const c = Math.floor(i / filas), rr = i % filas;
+      const x0 = 312 + c * 108, y0 = 72 + rr * 110;
+      this.estivas.push({ id: i + 1, c: c, r: rr, x0: x0, y0: y0, ax: x0 + 53, ay: y0 + 93, ocup: 0, resIn: 0, pedidos: [] });
+    }
+    const mk = (rol, n, hx, hy) => ({ rol: rol, n: n, hx: hx, hy: hy, x: hx, y: hy, state: 'libre', path: [], pedido: null,
+                                      timer: 0, total: 0, estiva: null, acum: { prod: 0, admin: 0, ocio: 0 }, real: 0,
+                                      uso: null, tLlegPC: 0, visitas: [], pda: false });
+    for (let i = 0; i < cfg.nChq; i++) {
+      this.chq.push(mk('chq', i + 1, 176, cfg.nChq === 1 ? 230 : 150 + i * (230 / (cfg.nChq - 1))));
+    }
+    for (let i = 0; i < cfg.nOrg; i++) { this.org.push(mk('org', i + 1, 262, 262 + i * 20)); }
+    for (let i = 0; i < cfg.nCar; i++) { this.car.push(mk('car', i + 1, 885, 250 + i * 22)); }
+    this.truck = { nro: 1, estado: 'presente', off: 0, carga: 0, res: 0, espera: 0, manual: false, tLleg: 0 };
+    this.add('Comienza la jornada. Camión Nº 1 en el muelle.');
+  }
+
+  add(msg, err) { this.log.push({ t: this.t, msg: msg, err: !!err }); if (this.log.length > 300) { this.log.shift(); } this.logSucio = true; }
+  rnd() { return this.r(); }
+
+  /* ---------- estaciones de Excel ---------- */
+  llegarEstacion(w, st, uso) {
+    w.uso = uso; w.tLlegPC = this.t;
+    if (!st.user && st.cola.length === 0) {
+      st.user = w; w.state = 'a_usar'; w.path = [[st.opX, st.opY]];
+    } else {
+      const k = st.cola.length, sp = slotPos(st, k);
+      st.cola.push(w); w.state = 'cola'; w.path = [[sp[0], ROAD], [sp[0], sp[1]]];
+    }
+  }
+  comenzarUso(w, st) {
+    st.sumEsp += this.t - w.tLlegPC; st.n++;
+    const tReg = this.cfg.tReg; let dur;
+    if (w.uso.tipo === 'reg1') { dur = normalR(this.r, tReg, 0.25 * tReg); }
+    else if (w.uso.tipo === 'reg2') { dur = normalR(this.r, 0.75 * tReg, 0.2 * tReg); }
+    else { dur = normalR(this.r, 25, 6) + (w.uso.p.reg2 === 'dup' ? 60 + this.rnd() * 60 : 0); }
+    w.total = w.timer = Math.max(8, dur);
+    w.state = 'usando';
+  }
+  liberarEstacion(st) {
+    st.user = null;
+    if (st.cola.length) {
+      const n = st.cola.shift();
+      st.user = n; n.state = 'a_usar'; n.path = [[st.opX, st.opY]];
+      st.cola.forEach((x, i) => { const sp = slotPos(st, i); x.path = [[sp[0], sp[1]]]; });
+    }
+  }
+  historial(st, estado) { st.hist.push(estado); if (st.hist.length > 12) { st.hist.shift(); } }
+
+  /* ---------- chequeadores ---------- */
+  actualizarChq(w) {
+    const vel = this.cfg.vel * 10;
+    switch (w.state) {
+      case 'libre':
+        if (this.cola.length) {
+          const p = this.cola.shift();
+          p.estado = 'chequeando'; p.tIniChq = this.t; p.chq = w.n;
+          w.pedido = p; w.total = w.timer = p.tCheck; w.state = 'chequeando';
+          this.add('Chequeador ' + w.n + ' revisa ' + fac(p) + ' (' + p.bultos + ' bultos).');
+        }
+        break;
+      case 'chequeando':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          const p = w.pedido;
+          p.estado = 'listo'; p.tFinChq = this.t; w.real++; this.listos.push(p);
+          w.timer = 0;
+          if (this.modo === 'excel') {
+            w.path = [[w.hx, ROAD], [PCS.A.opX, ROAD]]; w.state = 'ir_pc';
+            this.add('Chequeador ' + w.n + ' terminó ' + fac(p) + ' y va a la computadora central a registrarlo.');
+          } else {
+            w.state = 'registrando_pda'; w.total = w.timer = Math.max(4, normalR(this.r, 10, 2));
+            this.add('Chequeador ' + w.n + ' registra ' + fac(p) + ' en el piso, con su dispositivo.');
+          }
+        }
+        break;
+      case 'registrando_pda':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          const p = w.pedido; p.reg1 = 'ok'; this.st.regs++; w.pedido = null; w.timer = 0; w.state = 'libre';
+          this.add(fac(p) + ' validado y guardado en el sistema.');
+        }
+        break;
+      case 'ir_pc':
+        if (mover(w, vel)) { this.llegarEstacion(w, this.pc.A, { tipo: 'reg1', p: w.pedido }); }
+        break;
+      case 'cola': if (w.path.length) { mover(w, vel); } break;
+      case 'a_usar':
+        if (mover(w, vel)) { this.comenzarUso(w, this.pc.A); }
+        break;
+      case 'usando':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          const p = w.uso.p; this.st.regs++;
+          if (this.rnd() < this.cfg.pErrReg) {
+            p.reg1 = this.rnd() < 0.5 ? 'mal' : 'dup';
+            this.st.regsErr++; if (p.reg1 === 'mal') { this.st.errMal++; } else { this.st.errDup++; }
+            this.add('Registro inicial de ' + fac(p) + ' con ' + (p.reg1 === 'mal' ? 'código mal escrito' : 'código duplicado') + ' (Chequeador ' + w.n + ').', true);
+          } else { p.reg1 = 'ok'; }
+          this.historial(this.pc.A, p.reg1);
+          this.liberarEstacion(this.pc.A);
+          w.pedido = null; w.uso = null; w.timer = 0;
+          w.path = [[PCS.A.opX, ROAD], [w.hx, ROAD], [w.hx, w.hy]]; w.state = 'volver_pc';
+        }
+        break;
+      case 'volver_pc':
+        if (mover(w, vel)) { w.state = 'libre'; }
+        break;
+    }
+  }
+
+  /* ---------- organizadores ---------- */
+  elegirEstiva(p) {
+    const cap = this.cfg.capEst;
+    const libres = this.estivas.filter((e) => e.ocup + e.resIn + p.bultos <= cap);
+    if (libres.length) { return libres[0]; }
+    return this.estivas.reduce((a, b) => (a.ocup + a.resIn <= b.ocup + b.resIn ? a : b));
+  }
+  actualizarOrg(w) {
+    const vel = this.cfg.vel * 10;
+    switch (w.state) {
+      case 'libre':
+        if (this.listos.length) {
+          const p = this.listos.shift(), e = this.elegirEstiva(p);
+          p.estado = 'a_estiva'; p.org = w.n; e.resIn += p.bultos;
+          w.pedido = p; w.estiva = e;
+          w.path = [[CL, w.hy], [CL, e.ay], [e.ax, e.ay]]; w.state = 'llevando';
+          this.add('Organizador ' + w.n + ' lleva ' + fac(p) + ' a la estiva E' + e.id + '.');
+        }
+        break;
+      case 'llevando':
+        if (mover(w, vel)) { w.state = 'colocando'; w.total = w.timer = 3 + 0.3 * w.pedido.bultos; }
+        break;
+      case 'colocando':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          const e = w.estiva, p = w.pedido;
+          e.resIn -= p.bultos; e.ocup += p.bultos; e.pedidos.push(p);
+          p.estado = 'ubicado'; p.tUbic = this.t; p.estiva = e.id; w.real++;
+          this.st.sumUbic += this.t - p.tFinChq; this.st.nUbic++;
+          if (e.ocup > this.cfg.capEst) { this.st.excesos++; }
+          w.timer = 0;
+          if (this.modo === 'excel') {
+            w.path = rutaEstivaACamino(e, PCS.B.opX); w.state = 'ir_pc';
+            this.add('Organizador ' + w.n + ' dejó ' + fac(p) + ' en E' + e.id + ' y va a anotar la ubicación en Excel.');
+          } else {
+            w.state = 'registrando_pda'; w.total = w.timer = Math.max(3, normalR(this.r, 6, 1.5));
+          }
+        }
+        break;
+      case 'registrando_pda':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          const p = w.pedido, e = w.estiva; p.reg2 = 'ok'; this.st.regs++;
+          this.add(fac(p) + ' ubicado en E' + e.id + ' y guardado al instante.');
+          w.pedido = null; w.timer = 0;
+          w.path = [[CL, e.ay], [CL, w.hy], [w.hx, w.hy]]; w.state = 'volver';
+        }
+        break;
+      case 'ir_pc':
+        if (mover(w, vel)) { this.llegarEstacion(w, this.pc.B, { tipo: 'reg2', p: w.pedido }); }
+        break;
+      case 'cola': if (w.path.length) { mover(w, vel); } break;
+      case 'a_usar':
+        if (mover(w, vel)) { this.comenzarUso(w, this.pc.B); }
+        break;
+      case 'usando':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          const p = w.uso.p; this.st.regs++;
+          if (this.rnd() < this.cfg.pErrUbi) {
+            const v = this.rnd();
+            if (v < 0.4) { p.reg2 = 'vacia'; this.st.errVacia++; }
+            else if (v < 0.75) { p.reg2 = 'mal'; this.st.errMal++; }
+            else { p.reg2 = 'dup'; this.st.errDup++; }
+            this.st.regsErr++;
+            const txt = { vacia: 'quedó sin anotar (casilla vacía)', mal: 'con el código mal escrito', dup: 'con código duplicado' }[p.reg2];
+            this.add('Ubicación de ' + fac(p) + ' ' + txt + ' (Organizador ' + w.n + ').', true);
+          } else { p.reg2 = 'ok'; }
+          this.historial(this.pc.B, p.reg2);
+          this.liberarEstacion(this.pc.B);
+          w.pedido = null; w.uso = null; w.timer = 0;
+          w.path = [[PCS.B.opX, ROAD], [CL, ROAD], [CL, w.hy], [w.hx, w.hy]]; w.state = 'volver_pc';
+        }
+        break;
+      case 'volver_pc':
+      case 'volver':
+        if (mover(w, vel)) { w.state = 'libre'; }
+        break;
+    }
+  }
+
+  /* ---------- camión ---------- */
+  actualizarCamion() {
+    const T = this.truck, v = 280 / 20;
+    if (T.estado === 'presente') {
+      if (T.res === 0 && T.carga > 0) {
+        const resto = this.cfg.capCam - T.carga;
+        const hay = this.estivas.some((e) => e.pedidos.length > 0);
+        const cabe = this.estivas.some((e) => e.pedidos.some((p) => p.bultos <= resto));
+        if (resto <= 0 || (hay && !cabe) || T.manual) {
+          T.estado = 'saliendo'; T.manual = false;
+          this.st.camiones++; this.st.sumMuelle += this.t - T.tLleg; this.st.nMuelle++;
+          this.add('Camión Nº ' + T.nro + ' sale con ' + T.carga + ' bultos (' + Math.round(T.carga / this.cfg.capCam * 100) + ' %).');
+        }
+      }
+    } else if (T.estado === 'saliendo') {
+      T.off += v * DT;
+      if (T.off >= 280) { T.off = 280; T.estado = 'cambio'; T.espera = this.cfg.tCambio; }
+    } else if (T.estado === 'cambio') {
+      T.espera -= DT;
+      if (T.espera <= 0) { T.nro++; T.carga = 0; T.res = 0; T.estado = 'llegando'; this.add('Llega el camión Nº ' + T.nro + ' al muelle.'); }
+    } else if (T.estado === 'llegando') {
+      T.off -= v * DT;
+      if (T.off <= 0) { T.off = 0; T.estado = 'presente'; T.tLleg = this.t; }
+    }
+  }
+
+  /* ---------- cargadores ---------- */
+  elegirParaCargar() {
+    const T = this.truck, resto = this.cfg.capCam - T.carga - T.res;
+    let mejor = null, mejorE = null;
+    this.estivas.forEach((e) => {
+      e.pedidos.forEach((p) => {
+        if (p.reservado || p.bultos > resto) { return; }
+        if (!mejor || p.tUbic < mejor.tUbic) { mejor = p; mejorE = e; }
+      });
+    });
+    return mejor ? { p: mejor, e: mejorE } : null;
+  }
+  estadoBusqueda(p) { return p.reg2 === 'ok' ? 'ok' : (p.reg2 === 'dup' ? 'dup' : 'vacia'); }
+  estivasAlAzar(n, excluir) {
+    const c = this.estivas.filter((e) => e !== excluir);
+    const sel = [];
+    while (sel.length < n && c.length) { sel.push(c.splice(Math.floor(this.rnd() * c.length), 1)[0]); }
+    return sel;
+  }
+  irAEstivaCorrecta(w) {
+    // la ruta depende de dónde está parado el cargador
+    const e = w.estiva;
+    if (w.state === 'a_usar' || w.state === 'usando') { w.path = [[PCS.B.opX, ROAD]].concat(rutaCaminoAEstiva(PCS.B.opX, e)); }
+    else { w.path = rutaPasilloAEstiva(w.x, w.y, e); }
+    w.state = 'camino_estiva';
+  }
+  actualizarCar(w) {
+    const vel = this.cfg.vel * 10, T = this.truck;
+    switch (w.state) {
+      case 'libre':
+        if (T.estado === 'presente' && !T.manual) {
+          const sel = this.elegirParaCargar();
+          if (sel) {
+            const p = sel.p, e = sel.e;
+            p.reservado = true; p.tIniCarga = this.t; p.estado = 'a_recoger'; p.car = w.n; T.res += p.bultos;
+            w.pedido = p; w.estiva = e;
+            if (this.modo === 'excel') {
+              w.path = [[CR, w.hy], [CR, ROAD], [PCS.B.opX, ROAD]]; w.state = 'ir_pc';
+              this.add('Cargador ' + w.n + ' va a buscar en Excel la ubicación de ' + fac(p) + '.');
+            } else {
+              w.state = 'buscando_pda'; w.total = w.timer = Math.max(2, normalR(this.r, 4, 1));
+            }
+          }
+        }
+        break;
+      case 'buscando_pda':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          this.st.busq++; w.timer = 0;
+          w.path = [[CR, w.hy], [CR, w.estiva.ay], [w.estiva.ax, w.estiva.ay]]; w.state = 'camino_estiva';
+          this.add('Cargador ' + w.n + ' encontró ' + fac(w.pedido) + ' en E' + w.estiva.id + ' al instante.');
+        }
+        break;
+      case 'ir_pc':
+        if (mover(w, vel)) { this.llegarEstacion(w, this.pc.B, { tipo: 'busq', p: w.pedido }); }
+        break;
+      case 'cola': if (w.path.length) { mover(w, vel); } break;
+      case 'a_usar':
+        if (mover(w, vel)) { this.comenzarUso(w, this.pc.B); }
+        break;
+      case 'usando':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          const p = w.pedido, est = this.estadoBusqueda(p);
+          this.st.busq++;
+          let falsas = 0;
+          if (est === 'vacia') { falsas = 1 + Math.floor(this.rnd() * 3); }
+          else if (est === 'dup') { falsas = this.rnd() < 0.5 ? 1 : 0; }
+          if (est !== 'ok') { this.st.busqProb++; }
+          const txt = { ok: 'encontró la ubicación', vacia: 'halló la casilla vacía o con otro código, y busca a pie', dup: 'halló el código duplicado y debe verificar' }[est];
+          this.add('Cargador ' + w.n + ' ' + txt + ' de ' + fac(p) + '.', est !== 'ok');
+          this.liberarEstacion(this.pc.B);
+          w.uso = null; w.timer = 0;
+          w.visitas = this.estivasAlAzar(falsas, w.estiva);
+          if (w.visitas.length) {
+            const e1 = w.visitas.shift();
+            w.path = [[PCS.B.opX, ROAD]].concat(rutaCaminoAEstiva(PCS.B.opX, e1)); w.state = 'bf_camino';
+          } else {
+            w.path = [[PCS.B.opX, ROAD]].concat(rutaCaminoAEstiva(PCS.B.opX, w.estiva)); w.state = 'camino_estiva';
+          }
+        }
+        break;
+      case 'bf_camino':
+        if (mover(w, vel)) { w.state = 'bf_revisa'; w.total = w.timer = 8; }
+        break;
+      case 'bf_revisa':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          w.timer = 0;
+          const e = w.visitas.length ? w.visitas.shift() : w.estiva;
+          w.path = rutaPasilloAEstiva(w.x, w.y, e);
+          w.state = e === w.estiva ? 'camino_estiva' : 'bf_camino';
+        }
+        break;
+      case 'camino_estiva':
+        if (mover(w, vel)) { w.state = 'recogiendo'; w.total = w.timer = 3 + 0.5 * w.pedido.bultos; }
+        break;
+      case 'recogiendo':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          const e = w.estiva, p = w.pedido;
+          e.pedidos.splice(e.pedidos.indexOf(p), 1); e.ocup -= p.bultos;
+          p.estado = 'a_camion'; w.timer = 0;
+          w.path = [[CR, e.ay], [CR, TY], [TRX, TY]]; w.state = 'camino_camion';
+        }
+        break;
+      case 'camino_camion':
+        if (mover(w, vel)) { w.state = 'cargando'; w.total = w.timer = 2 + this.cfg.sBulto * w.pedido.bultos; }
+        break;
+      case 'cargando':
+        w.timer -= DT;
+        if (w.timer <= 0) {
+          const p = w.pedido;
+          T.carga += p.bultos; T.res -= p.bultos;
+          p.estado = 'cargado'; p.tCarg = this.t; p.camion = T.nro; w.real++;
+          this.st.cargados++; this.st.bultosCarg += p.bultos; this.st.sumSis += this.t - p.tLleg; this.st.nSis++;
+          this.add('Cargador ' + w.n + ' cargó ' + fac(p) + ' al camión Nº ' + T.nro + ' (' + T.carga + '/' + this.cfg.capCam + ').');
+          w.pedido = null; w.timer = 0;
+          w.path = [[CR, TY], [CR, w.hy], [w.hx, w.hy]]; w.state = 'volver';
+        }
+        break;
+      case 'volver':
+        if (mover(w, vel)) { w.state = 'libre'; }
+        break;
+    }
+  }
+
+  /* ---------- paso de simulación ---------- */
+  contabilizar(w) {
+    const rol = w.rol;
+    if (w.state === 'libre') { w.acum.ocio += DT; }
+    else if (ADMIN[rol].indexOf(w.state) >= 0) { w.acum.admin += DT; }
+    else { w.acum.prod += DT; }
+  }
+  paso() {
+    this.t += DT;
+    for (;;) {
+      const s = this.gen.get(this.idx);
+      if (s.t > this.t) { break; }
+      this.idx++;
+      const p = { id: this.idx, tipo: s.tipo, bultos: s.bultos, tCheck: s.tCheck, tLleg: s.t, estado: 'cola',
+                  tIniChq: null, tFinChq: null, tUbic: null, tIniCarga: null, tCarg: null,
+                  estiva: null, camion: null, chq: null, org: null, car: null, reg1: 'pend', reg2: 'pend', reservado: false };
+      this.pedidos.push(p); this.cola.push(p);
+      this.add('Llega ' + fac(p) + ' (' + p.bultos + ' bultos, ' + p.tipo + ') para chequear.');
+    }
+    this.st.maxCola = Math.max(this.st.maxCola, this.cola.length);
+    this.chq.forEach((w) => this.actualizarChq(w));
+    this.org.forEach((w) => this.actualizarOrg(w));
+    this.actualizarCamion();
+    this.car.forEach((w) => this.actualizarCar(w));
+    this.chq.concat(this.org, this.car).forEach((w) => this.contabilizar(w));
+    if (this.t >= this.nextMuestra) {
+      this.serie.push({ t: this.t, wip: this.pedidos.length - this.st.cargados });
+      this.nextMuestra += 30;
+    }
+    if (this.truck.estado === 'presente' && this.truck.tLleg === 0 && this.truck.nro === 1) { /* el camión 1 llega en t = 0 */ }
+    if (this.cfg.jornada > 0 && this.t >= this.cfg.jornada) { this.fin = true; }
+  }
+
+  /* ---------- métricas ---------- */
+  trabajadores() { return this.chq.concat(this.org, this.car); }
+  metricas() {
+    const ws = this.trabajadores(), st = this.st;
+    let admin = 0, total = 0;
+    ws.forEach((w) => { admin += w.acum.admin; total += w.acum.admin + w.acum.prod + w.acum.ocio; });
+    let ubicados = 0;
+    this.estivas.forEach((e) => { ubicados += e.pedidos.length; });
+    let okN = 0, totN = 0;
+    this.pedidos.forEach((p) => {
+      if (p.tFinChq !== null && p.reg1 !== 'pend') { totN++; if (p.reg1 === 'ok') { okN++; } }
+      if (p.tUbic !== null && p.reg2 !== 'pend') { totN++; if (p.reg2 === 'ok') { okN++; } }
+    });
+    const A = this.pc.A, B = this.pc.B, nEsp = A.n + B.n;
+    const tConsol = this.modo === 'excel' ? 30 + st.regsErr / 4 : 0;
+    return {
+      llegados: this.pedidos.length, colaChq: this.cola.length, listos: this.listos.length, ubicados: ubicados,
+      cargados: st.cargados, bultos: st.bultosCarg, camiones: st.camiones, enProceso: this.pedidos.length - st.cargados,
+      tSis: st.nSis ? st.sumSis / st.nSis / 60 : 0,
+      horasAdmin: admin / 3600, pctAdmin: total ? admin / total * 100 : 0,
+      esperaPC: nEsp ? (A.sumEsp + B.sumEsp) / nEsp / 60 : 0, colaPC: A.cola.length + B.cola.length,
+      regs: st.regs, regsErr: st.regsErr, pctErr: st.regs ? st.regsErr / st.regs * 100 : 0,
+      busq: st.busq, busqProb: st.busqProb, pctBusq: st.busq ? st.busqProb / st.busq * 100 : 0,
+      tMuelle: st.nMuelle ? st.sumMuelle / st.nMuelle / 60 : 0,
+      precision: totN ? okN / totN * 100 : 100, tConsol: tConsol, maxCola: st.maxCola
+    };
+  }
+}
+
+function mover(w, vel) {
+  let d = vel * DT;
+  while (d > 0 && w.path.length) {
+    const p = w.path[0], dx = p[0] - w.x, dy = p[1] - w.y, dist = Math.hypot(dx, dy);
+    if (dist <= d) { w.x = p[0]; w.y = p[1]; w.path.shift(); d -= dist; }
+    else { w.x += dx / dist * d; w.y += dy / dist * d; d = 0; }
+  }
+  return w.path.length === 0;
+}
+
+/* ====================== estado global ====================== */
+let cfg, gen, simE, simS, vista = 'excel', running = false, finMostrado = false;
+
+function reiniciar() {
+  cfg = leerCfg();
+  gen = crearGenerador(cfg);
+  simE = new Sim('excel', cfg, gen);
+  simS = new Sim('sistema', cfg, gen);
+  running = false; finMostrado = false;
+  $('btnPlay').textContent = '▶ Iniciar';
+  $('fin').style.display = 'none';
+  construirEscenas();
+  refrescarUI(true);
+}
+
+/* ====================== dibujo ====================== */
+const escenas = [];   // { sim, cv, ctx, escala }
+
+function construirEscenas() {
+  const cont = $('escenas');
+  cont.innerHTML = '';
+  escenas.length = 0;
+  const lista = vista === 'ambos' ? [simE, simS] : [vista === 'excel' ? simE : simS];
+  lista.forEach((sim) => {
+    const d = document.createElement('div');
+    d.className = 'escena';
+    const tit = document.createElement('div');
+    tit.className = 'tit ' + (sim.modo === 'excel' ? 'e' : 's');
+    tit.textContent = sim.modo === 'excel' ? 'Situación actual · registro en Excel' : 'Propuesta · sistema Litani';
+    const wrap = document.createElement('div');
+    wrap.className = 'canvaswrap';
+    const cv = document.createElement('canvas');
+    cv.className = 'esc';
+    wrap.appendChild(cv);
+    d.appendChild(tit); d.appendChild(wrap);
+    cont.appendChild(d);
+    const e = { sim: sim, cv: cv, ctx: cv.getContext('2d'), escala: 1 };
+    escenas.push(e);
+    cv.addEventListener('mousemove', (ev) => tooltip(e, ev));
+    cv.addEventListener('mouseleave', () => { $('tip').style.display = 'none'; });
+  });
+  ajustarCanvas();
+}
+function ajustarCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  escenas.forEach((e) => {
+    const cw = e.cv.parentElement.clientWidth || 800;
+    e.escala = cw / W;
+    e.cv.width = Math.round(cw * dpr); e.cv.height = Math.round(cw * H / W * dpr);
+    e.cv.style.height = (cw * H / W) + 'px';
+    e.ctx.setTransform(e.escala * dpr, 0, 0, e.escala * dpr, 0, 0);
+  });
+}
+
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); } else { ctx.rect(x, y, w, h); }
+}
+function txt(ctx, s, x, y, color, size, align, bold) {
+  ctx.fillStyle = color; ctx.font = (bold ? 'bold ' : '') + size + 'px "Segoe UI", sans-serif';
+  ctx.textAlign = align || 'left'; ctx.fillText(s, x, y);
+}
+function zona(ctx, x, y, w, h, titulo, abajo) {
+  ctx.fillStyle = C.zone; rr(ctx, x, y, w, h, 12); ctx.fill();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.stroke();
+  txt(ctx, titulo, x + 14, abajo ? y + h - 8 : y + 20, C.mute, 12, 'left', true);
+}
+const colTipo = (p) => (p.tipo === 'POP' ? C.pop : C.out);
+const colRol = (rol) => ({ chq: C.chq, org: C.org, car: C.car }[rol]);
+
+function dibujarPila(ctx, lista, x, y, cols, filasMax, titulo) {
+  txt(ctx, titulo + ' (' + lista.length + ')', x, y - 8, C.mute, 11, 'left', true);
+  const maxVis = cols * filasMax;
+  lista.slice(0, maxVis).forEach((p, i) => {
+    ctx.fillStyle = colTipo(p);
+    ctx.fillRect(x + (i % cols) * 24, y + Math.floor(i / cols) * 16, 20, 12);
+  });
+  if (lista.length > maxVis) { txt(ctx, '+' + (lista.length - maxVis) + ' más', x, y + filasMax * 16 + 10, C.mute, 11, 'left'); }
+}
+
+function dibujarEstiva(ctx, sim, e) {
+  const cap = sim.cfg.capEst, x = e.x0 + 22, y = e.y0 + 16, w = 62, h = 60, H1 = h - 6;
+  ctx.fillStyle = '#10171c'; rr(ctx, x, y, w, h, 4); ctx.fill();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y - 12, w, h + 12); ctx.clip();
+  let yy = y + h - 3;
+  e.pedidos.forEach((p) => {
+    const bh = Math.max(3, p.bultos / cap * H1);
+    yy -= bh;
+    ctx.fillStyle = colTipo(p); ctx.globalAlpha = 0.92;
+    ctx.fillRect(x + 4, yy + 0.5, w - 8, bh - 1); ctx.globalAlpha = 1;
+  });
+  ctx.restore();
+  const r = e.ocup / cap;
+  txt(ctx, 'E' + e.id + ' · ' + e.ocup + '/' + cap, e.x0 + 53, e.y0 + 11, r > 1 ? C.mal : r >= 0.7 ? C.pop : C.ok, 10, 'center', true);
+}
+
+function dibujarEstacion(ctx, st, e) {
+  // escritorio con la pantalla de Excel
+  ctx.fillStyle = '#2c3a44'; rr(ctx, st.dx, 570, 90, 36, 4); ctx.fill();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#0e1418'; ctx.fillRect(st.dx + 6, 574, 78, 28);
+  const cols = 6, cw = 12, ch = 8;
+  for (let i = 0; i < 12; i++) {
+    const h = st.hist[st.hist.length - 12 + i];
+    const col = h ? C[h] : '#1d272e';
+    ctx.fillStyle = col;
+    ctx.fillRect(st.dx + 7 + (i % cols) * (cw + 0.5), 577 + Math.floor(i / cols) * (ch + 4), cw, ch);
+  }
+  txt(ctx, st.titulo, st.dx + 98, 584, C.text, 12, 'left', true);
+  txt(ctx, st.sub, st.dx + 98, 598, C.mute, 11, 'left');
+  const n = st.cola.length + (st.user ? 1 : 0);
+  if (n > 0) { txt(ctx, n + (n === 1 ? ' persona' : ' personas') + ' en la estación', st.dx + 98, 568, n > 1 ? C.mal : C.mute, 11, 'left', true); }
+}
+
+function dibujarPersona(ctx, w) {
+  const col = colRol(w.rol);
+  const conCaja = w.pedido && ['llevando', 'colocando', 'camino_camion', 'cargando'].indexOf(w.state) >= 0;
+  if (conCaja) {
+    ctx.fillStyle = colTipo(w.pedido); ctx.fillRect(w.x - 7, w.y - 21, 14, 9);
+    ctx.strokeStyle = '#0b1014'; ctx.lineWidth = 1; ctx.strokeRect(w.x - 7, w.y - 21, 14, 9);
+  }
+  if (w.state === 'registrando_pda' || w.state === 'buscando_pda') {
+    ctx.fillStyle = '#7fdcf0'; rr(ctx, w.x + 9, w.y - 14, 7, 11, 2); ctx.fill();
+  }
+  ctx.beginPath(); ctx.arc(w.x, w.y, 9, 0, Math.PI * 2);
+  ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = '#0b1014'; ctx.lineWidth = 1.5; ctx.stroke();
+  txt(ctx, String(w.n), w.x, w.y + 3.5, '#0b1014', 10, 'center', true);
+  if (w.total > 0 && w.timer > 0) {
+    ctx.beginPath(); ctx.arc(w.x, w.y, 12.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - w.timer / w.total));
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+  }
+}
+
+function dibujarCamion(ctx, sim) {
+  const T = sim.truck, cap = sim.cfg.capCam, tx = 932 + T.off, ty = 132;
+  if (T.estado === 'cambio') {
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; rr(ctx, 932, ty, 204, 100, 6); ctx.stroke(); ctx.setLineDash([]);
+    txt(ctx, 'Cambio de camión · llega en ' + Math.ceil(T.espera / 60) + ' min', 1034, ty + 54, C.mute, 12, 'center');
+    return;
+  }
+  ctx.fillStyle = '#2a3a45'; rr(ctx, tx, ty, 160, 100, 6); ctx.fill();
+  ctx.strokeStyle = '#51677a'; ctx.lineWidth = 1.5; ctx.stroke();
+  const inter = 148, frac = Math.min(1, T.carga / cap), fr = Math.min(1 - frac, T.res / cap);
+  ctx.fillStyle = 'rgba(0,168,198,.88)'; ctx.fillRect(tx + 6, ty + 8, inter * frac, 84);
+  ctx.fillStyle = 'rgba(0,168,198,.28)'; ctx.fillRect(tx + 6 + inter * frac, ty + 8, inter * fr, 84);
+  ctx.fillStyle = '#3d5160'; rr(ctx, tx + 164, ty + 30, 40, 70, 6); ctx.fill(); ctx.strokeStyle = '#51677a'; ctx.stroke();
+  ctx.fillStyle = '#8fb6cc'; ctx.fillRect(tx + 184, ty + 38, 16, 20);
+  ctx.fillStyle = '#0b1014';
+  [26, 56, 134, 186].forEach((dx) => { ctx.beginPath(); ctx.arc(tx + dx, ty + 102, 9, 0, Math.PI * 2); ctx.fill(); });
+  txt(ctx, 'Camión Nº ' + T.nro, tx + 80, ty - 22, C.text, 13, 'center', true);
+  txt(ctx, T.carga + ' / ' + cap + ' bultos (' + Math.round(T.carga / cap * 100) + ' %)', tx + 80, ty - 6, C.mute, 12, 'center');
+}
+
+function dibujarOficinaSistema(ctx, sim) {
+  ctx.fillStyle = '#123d33'; rr(ctx, 300, 452, 500, 112, 10); ctx.fill();
+  ctx.strokeStyle = '#1f6b57'; ctx.lineWidth = 1.5; ctx.stroke();
+  txt(ctx, 'SISTEMA LITANI · base de datos central', 550, 478, '#7fe3c3', 14, 'center', true);
+  const items = ['Valida el código al registrar: sin duplicados ni errores', 'La ubicación queda guardada al instante', 'Búsqueda inmediata desde cualquier dispositivo'];
+  items.forEach((s, i) => txt(ctx, '✓  ' + s, 330, 502 + i * 17, '#cfeee3', 12, 'left'));
+  txt(ctx, 'Registros guardados: ' + sim.st.regs, 550, 556, '#7fe3c3', 12, 'center', true);
+}
+
+function dibujarSupervisor(ctx, sim, t) {
+  ctx.fillStyle = '#2c3a44'; rr(ctx, 800, 570, 150, 36, 4); ctx.fill();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#0e1418'; ctx.fillRect(806, 574, 138, 28);
+  const m = sim.metricas();
+  if (sim.modo === 'excel') {
+    const ok = Math.round(m.precision / 100 * 20);
+    for (let i = 0; i < 20; i++) {
+      ctx.fillStyle = i < ok ? C.ok : (i % 3 === 0 ? C.mal : C.dup);
+      ctx.fillRect(808 + (i % 10) * 13.6, 577 + Math.floor(i / 10) * 12, 12, 9);
+    }
+    txt(ctx, 'Consolida con fórmulas en Excel', 962, 584, C.text, 12, 'left', true);
+    txt(ctx, 'al cierre de la jornada', 962, 598, C.mute, 11, 'left');
+  } else {
+    for (let i = 0; i < 10; i++) {
+      ctx.fillStyle = C.ok; ctx.fillRect(808 + i * 13.6, 592 - (3 + (i * 7) % 12), 12, 3 + (i * 7) % 12);
+    }
+    txt(ctx, 'Panel en tiempo real', 962, 584, C.text, 12, 'left', true);
+    txt(ctx, 'rendimiento al instante', 962, 598, C.mute, 11, 'left');
+  }
+  ctx.beginPath(); ctx.arc(875, 546, 9, 0, Math.PI * 2); ctx.fillStyle = C.sup; ctx.fill();
+  ctx.strokeStyle = '#0b1014'; ctx.lineWidth = 1.5; ctx.stroke();
+  txt(ctx, 'S', 875, 549.5, '#0b1014', 10, 'center', true);
+  txt(ctx, 'Supervisor', 875, 530, C.mute, 11, 'center');
+}
+
+function dibujar(e) {
+  const ctx = e.ctx, sim = e.sim, ex = sim.modo === 'excel';
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = C.floor; ctx.fillRect(0, 0, W, H);
+  txt(ctx, ex ? 'SITUACIÓN ACTUAL · registro manual en Excel' : 'PROPUESTA · registro en el piso con el sistema', 14, 30, ex ? '#ff9c9c' : '#7fe3c3', 15, 'left', true);
+  txt(ctx, 'Reloj ' + hms(sim.t) + ' · escala: 1 px = 0,1 m', 1166, 30, C.mute, 12, 'right');
+
+  zona(ctx, 8, 56, 284, 350, 'PISO · CHEQUEO');
+  zona(ctx, 302, 56, 552, 350, 'ÁREA DE CARGA · ESTIVAS', true);
+  zona(ctx, 864, 56, 308, 350, 'MUELLE');
+  zona(ctx, 8, 414, 1164, 198, ex ? 'OFICINA · estaciones de trabajo con Excel' : 'OFICINA · sistema central');
+
+  ctx.setLineDash([6, 8]); ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1.2;
+  [CL, CR].forEach((x) => { ctx.beginPath(); ctx.moveTo(x, 66); ctx.lineTo(x, ROAD); ctx.stroke(); });
+  ctx.beginPath(); ctx.moveTo(30, ROAD); ctx.lineTo(1150, ROAD); ctx.stroke();
+  [0, 1, 2].forEach((r) => { const y = 72 + r * 110 + 93; ctx.beginPath(); ctx.moveTo(CL, y); ctx.lineTo(CR, y); ctx.stroke(); });
+  ctx.beginPath(); ctx.moveTo(CR, TY); ctx.lineTo(TRX, TY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  dibujarPila(ctx, sim.cola, 16, 104, 2, 14, 'Por chequear');
+  dibujarPila(ctx, sim.listos, 206, 104, 3, 7, 'Listos para ubicar');
+  sim.chq.forEach((w) => {
+    ctx.fillStyle = '#2c3a44'; rr(ctx, 92, w.hy - 14, 52, 28, 4); ctx.fill();
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
+    txt(ctx, 'Mesa ' + w.n, 118, w.hy + 4, C.mute, 10, 'center');
+    if (w.state === 'chequeando' && w.pedido) { ctx.fillStyle = colTipo(w.pedido); ctx.fillRect(104, w.hy - 11, 28, 6); }
+  });
+  txt(ctx, 'Organizadores', 262, 248, C.mute, 10.5, 'center');
+  txt(ctx, 'Cargadores', 885, 236, C.mute, 10.5, 'center');
+
+  sim.estivas.forEach((s) => dibujarEstiva(ctx, sim, s));
+  dibujarCamion(ctx, sim);
+
+  if (ex) { dibujarEstacion(ctx, sim.pc.A, e); dibujarEstacion(ctx, sim.pc.B, e); }
+  else { dibujarOficinaSistema(ctx, sim); }
+  dibujarSupervisor(ctx, sim);
+  sim.trabajadores().forEach((w) => dibujarPersona(ctx, w));
+}
+
+/* ====================== tooltip ====================== */
+const ESTADOS = {
+  libre: 'libre', chequeando: 'revisando un pedido', registrando_pda: 'registrando con su dispositivo', ir_pc: 'caminando a la computadora',
+  cola: 'esperando su turno en la computadora', a_usar: 'pasando a la computadora', usando: 'trabajando en Excel',
+  volver_pc: 'regresando a su puesto', llevando: 'llevando el pedido a la estiva', colocando: 'colocando el pedido', volver: 'regresando',
+  buscando_pda: 'buscando la ubicación en su dispositivo', bf_camino: 'buscando el pedido a pie', bf_revisa: 'revisando una estiva',
+  camino_estiva: 'yendo a la estiva', recogiendo: 'recogiendo el pedido', camino_camion: 'llevando el pedido al camión', cargando: 'cargando el camión'
+};
+const ROLES = { chq: 'Chequeador', org: 'Organizador', car: 'Cargador' };
+function tooltip(e, ev) {
+  const r = e.cv.getBoundingClientRect(), mx = (ev.clientX - r.left) / e.escala, my = (ev.clientY - r.top) / e.escala;
+  let html = null;
+  const ws = e.sim.trabajadores();
+  for (let i = 0; i < ws.length; i++) {
+    const w = ws[i];
+    if (Math.hypot(w.x - mx, w.y - my) < 14) {
+      html = '<b>' + ROLES[w.rol] + ' ' + w.n + '</b><br>' + ESTADOS[w.state] + (w.pedido ? '<br>' + fac(w.pedido) + ' · ' + w.pedido.bultos + ' bultos · ' + w.pedido.tipo : '') +
+        '<br>En trámites: ' + f1(w.acum.admin / 60) + ' min';
+      break;
+    }
+  }
+  if (!html) {
+    const es = e.sim.estivas;
+    for (let i = 0; i < es.length; i++) {
+      const s = es[i];
+      if (mx >= s.x0 + 22 && mx <= s.x0 + 84 && my >= s.y0 + 6 && my <= s.y0 + 76) {
+        html = '<b>Estiva E' + s.id + '</b> · ' + s.ocup + '/' + e.sim.cfg.capEst + ' bultos' +
+          (s.pedidos.length ? '<br>' + s.pedidos.map((p) => fac(p) + ' (' + p.bultos + ', ' + p.tipo + (e.sim.modo === 'excel' && p.reg2 !== 'ok' ? ', Excel: ' + (p.reg2 === 'pend' ? 'sin anotar' : p.reg2 === 'vacia' ? 'casilla vacía' : p.reg2 === 'mal' ? 'código mal' : 'duplicado') : '') + ')').join('<br>') : '<br>vacía');
+        break;
+      }
+    }
+  }
+  const tip = $('tip');
+  if (html) {
+    tip.innerHTML = html; tip.style.display = 'block';
+    tip.style.left = Math.min(ev.clientX + 14, window.innerWidth - 290) + 'px';
+    tip.style.top = (ev.clientY + 14) + 'px';
+  } else { tip.style.display = 'none'; }
+}
+
+/* ====================== interfaz ====================== */
+const FILAS = [
+  { t: 'Pedidos cargados',                          f: (m) => m.cargados,          fmt: f0, mejor: 'alto' },
+  { t: 'Bultos cargados',                           f: (m) => m.bultos,            fmt: f0, mejor: 'alto' },
+  { t: 'Camiones despachados',                      f: (m) => m.camiones,          fmt: f0, mejor: 'alto' },
+  { t: 'Pedidos llegados que siguen sin cargar',    f: (m) => m.enProceso,         fmt: f0, mejor: 'bajo' },
+  { t: 'Tiempo medio del pedido en el almacén (min)', f: (m) => m.tSis,            fmt: f1, mejor: 'bajo' },
+  { t: 'Jornada del personal en trámites y traslados (%)', f: (m) => m.pctAdmin,   fmt: f1, mejor: 'bajo' },
+  { t: 'Horas-persona en trámites y traslados',     f: (m) => m.horasAdmin,        fmt: f1, mejor: 'bajo' },
+  { t: 'Espera media por una computadora (min)',    f: (m) => m.esperaPC,          fmt: f1, mejor: 'bajo' },
+  { t: 'Registros con error (%)',                   f: (m) => m.pctErr,            fmt: f1, mejor: 'bajo' },
+  { t: 'Búsquedas de ubicación con problema (%)',   f: (m) => m.pctBusq,           fmt: f1, mejor: 'bajo' },
+  { t: 'Permanencia media del camión en el muelle (min)', f: (m) => m.tMuelle,     fmt: f1, mejor: 'bajo' },
+  { t: 'Precisión del rendimiento que ve el supervisor (%)', f: (m) => m.precision, fmt: f1, mejor: 'alto' },
+  { t: 'Consolidación del supervisor al cierre (min)', f: (m) => m.tConsol,        fmt: f0, mejor: 'bajo' }
+];
+
+function refrescarUI(forzar) {
+  const ahora = performance.now();
+  if (!forzar && ahora - (refrescarUI.ult || 0) < 200) { return; }
+  refrescarUI.ult = ahora;
+  const sim = vista === 'sistema' ? simS : simE;
+  $('clock').textContent = hms(simE.t);
+  const mE = simE.metricas(), mS = simS.metricas(), m = vista === 'sistema' ? mS : mE, ex = sim.modo === 'excel';
+
+  // tarjetas de etapas
+  const et = [
+    { n: 'Etapa 1', h: 'Culminación y registro inicial', mal: ex && (m.colaPC > 0 || m.pctErr > 5),
+      p: ex ? 'En espera de chequeo: <b>' + m.colaChq + '</b><br>Esperando la computadora: <b>' + sim.pc.A.cola.length + '</b><br>Espera media por una computadora: <b>' + f1(m.esperaPC) + ' min</b>'
+            : 'En espera de chequeo: <b>' + m.colaChq + '</b><br>Registro en el piso: <b>10 s</b>, sin traslados<br>Códigos validados: <b>' + sim.st.regs + '</b>' },
+    { n: 'Etapa 2', h: 'Ubicación en estiva', mal: ex && m.pctErr > 5,
+      p: 'Listos para ubicar: <b>' + m.listos + '</b><br>Ubicados en estivas: <b>' + m.ubicados + '</b><br>' + (ex ? 'Registros con error: <b>' + f1(m.pctErr) + ' %</b>' : 'Registros con error: <b>0 %</b>') },
+    { n: 'Etapa 3', h: 'Despacho y carga', mal: ex && m.pctBusq > 10,
+      p: 'Búsquedas con problema: <b>' + m.busqProb + '</b> de <b>' + m.busq + '</b> (' + f1(m.pctBusq) + ' %)<br>Camión en el muelle: <b>' + f1(m.tMuelle) + ' min</b><br>Camiones despachados: <b>' + m.camiones + '</b>' },
+    { n: 'Etapa 4', h: 'Consolidación gerencial', mal: ex && m.precision < 95,
+      p: 'Precisión del rendimiento: <b>' + f1(m.precision) + ' %</b><br>Consolidación al cierre: <b>' + (ex ? '≈ ' + f0(m.tConsol) + ' min' : 'en tiempo real') + '</b><br>Personal en trámites: <b>' + f1(m.pctAdmin) + ' %</b>' }
+  ];
+  $('etapas').innerHTML = et.map((x) => '<div class="etapa' + (x.mal ? ' mal' : '') + '"><div class="n">' + x.n + '</div><h3>' + x.h + '</h3><p>' + x.p + '</p></div>').join('');
+
+  // comparación
+  let h = '<tr><th>Indicador</th><th>Actual (Excel)</th><th>Propuesta</th><th>Diferencia</th></tr>';
+  FILAS.forEach((fl) => {
+    const a = fl.f(mE), p = fl.f(mS);
+    let dif = '—', cls = '';
+    if (Math.abs(a - p) > 1e-9) {
+      if (a !== 0) {
+        const pct = (p - a) / Math.abs(a) * 100;
+        dif = (pct > 0 ? '+' : '−') + f0(Math.abs(pct)) + ' %';
+      } else { dif = (p > a ? '+' : '−') + fl.fmt(Math.abs(p - a)); }
+      const mejoro = fl.mejor === 'alto' ? p > a : p < a;
+      cls = mejoro ? 'bueno' : 'malo';
+    }
+    h += '<tr><td>' + fl.t + '</td><td class="e">' + fl.fmt(a) + '</td><td class="s">' + fl.fmt(p) + '</td><td class="' + cls + '">' + dif + '</td></tr>';
+  });
+  $('cmp').innerHTML = h;
+
+  // informe del supervisor
+  $('infTit').textContent = 'Informe del supervisor · ' + (ex ? 'situación actual (Excel)' : 'propuesta (sistema)');
+  let t = '<tr><th>Trabajador</th><th>Trabajo real</th><th>Lo que registra el sistema</th><th>Precisión</th><th>Min en trámites</th><th>Min libre</th></tr>';
+  sim.trabajadores().forEach((w) => {
+    let acreditado = 0, unidad = '';
+    if (w.rol === 'chq') {
+      unidad = ' pedidos chequeados';
+      sim.pedidos.forEach((p) => { if (p.chq === w.n && p.tFinChq !== null && p.reg1 === 'ok') { acreditado++; } });
+    } else if (w.rol === 'org') {
+      unidad = ' pedidos ubicados';
+      sim.pedidos.forEach((p) => { if (p.org === w.n && p.tUbic !== null && p.reg2 === 'ok') { acreditado++; } });
+    } else { unidad = ' pedidos cargados'; acreditado = w.real; }
+    const prec = w.real ? acreditado / w.real * 100 : 100;
+    t += '<tr><td>' + ROLES[w.rol] + ' ' + w.n + '</td><td>' + w.real + unidad + '</td><td>' + acreditado + '</td><td class="' + (prec < 90 ? 'malo' : '') + '">' + f0(prec) + ' %</td><td>' + f1(w.acum.admin / 60) + '</td><td>' + f1(w.acum.ocio / 60) + '</td></tr>';
+  });
+  $('inf').innerHTML = t;
+  $('infNota').textContent = ex
+    ? 'En Excel, un pedido con el código mal escrito, repetido o sin anotar no se le acredita a su trabajador, aunque lo haya hecho. Con ese informe el supervisor decide ajustes y bonificaciones.'
+    : 'Con validación en el momento del registro, todo el trabajo queda acreditado a quien lo hizo.';
+
+  // registro
+  $('logTit').textContent = 'Registro de eventos · ' + (ex ? 'situación actual' : 'propuesta');
+  if (sim.logSucio || forzar) {
+    sim.logSucio = false;
+    $('log').innerHTML = sim.log.slice(-40).reverse().map((l) => '<li' + (l.err ? ' class="err"' : '') + '><b>' + hms(l.t) + '</b>' + l.msg + '</li>').join('');
+  }
+  dibujarGrafico();
+}
+
+function dibujarGrafico() {
+  const cv = $('chart'), g = cv.getContext('2d'), w = cv.width, hh = cv.height;
+  g.clearRect(0, 0, w, hh);
+  const ml = 38, mb = 24, mt = 28, mr = 8;
+  const tmax = cfg.jornada > 0 ? cfg.jornada : Math.max(simE.t, 3600);
+  const ymax = Math.max(5, Math.max.apply(null, simE.serie.concat(simS.serie).map((s) => s.wip).concat([5])));
+  g.strokeStyle = '#33424d'; g.fillStyle = '#8fa0ad'; g.font = '13px sans-serif'; g.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = mt + (hh - mt - mb) * (1 - i / 4);
+    g.beginPath(); g.moveTo(ml, y); g.lineTo(w - mr, y); g.stroke();
+    g.fillText(String(Math.round(ymax * i / 4)), 4, y + 4);
+  }
+  const nx = cfg.jornada > 0 ? cfg.jornada / 3600 : Math.ceil(tmax / 3600);
+  for (let i = 0; i <= nx; i++) {
+    const x = ml + (w - ml - mr) * (i * 3600 / tmax);
+    if (x <= w - mr + 1) { g.fillText(i + ' h', x - 8, hh - 6); }
+  }
+  const linea = (sim, color) => {
+    g.strokeStyle = color; g.lineWidth = 2; g.beginPath();
+    sim.serie.forEach((s, i) => {
+      const x = ml + (w - ml - mr) * (s.t / tmax), y = mt + (hh - mt - mb) * (1 - s.wip / ymax);
+      if (i === 0) { g.moveTo(x, y); } else { g.lineTo(x, y); }
+    });
+    g.stroke();
+  };
+  linea(simE, '#ff6b6b'); linea(simS, '#2fbf94');
+  g.fillStyle = '#ff6b6b'; g.fillRect(ml, 8, 12, 5); g.fillStyle = '#cbd5dd'; g.fillText('Actual (Excel)', ml + 18, 15);
+  g.fillStyle = '#2fbf94'; g.fillRect(ml + 150, 8, 12, 5); g.fillStyle = '#cbd5dd'; g.fillText('Propuesta', ml + 168, 15);
+}
+
+/* ====================== CSV ====================== */
+function descargarCsv() {
+  const mE = simE.metricas(), mS = simS.metricas();
+  const c = cfg;
+  const L = ['Resumen de la simulación', 'Tiempo simulado (s);' + Math.round(simE.t),
+    'Chequeadores;' + c.nChq, 'Organizadores;' + c.nOrg, 'Cargadores;' + c.nCar, 'Pedidos por hora;' + c.rate,
+    'Chequeo físico (s);' + c.tChq, 'Registro en Excel (s);' + c.tReg, 'Errores registro inicial (%);' + c.pErrReg * 100,
+    'Errores registro ubicación (%);' + c.pErrUbi * 100, 'Capacidad camión;' + c.capCam, 'Semilla;' + c.seed, '',
+    'Indicador;Actual (Excel);Propuesta'];
+  FILAS.forEach((fl) => L.push(fl.t + ';' + fl.fmt(fl.f(mE)) + ';' + fl.fmt(fl.f(mS))));
+  L.push('', 'Detalle de pedidos (situación actual)', 'Pedido;Tipo;Bultos;Llegada (s);Inicio chequeo (s);Fin chequeo (s);Ubicado (s);Cargado (s);Estiva;Camión;Registro inicial;Registro ubicación');
+  const n = (v) => (v === null ? '' : Math.round(v));
+  simE.pedidos.forEach((p) => {
+    L.push([fac(p), p.tipo, p.bultos, n(p.tLleg), n(p.tIniChq), n(p.tFinChq), n(p.tUbic), n(p.tCarg), p.estiva === null ? '' : 'E' + p.estiva, p.camion === null ? '' : p.camion, p.reg1, p.reg2].join(';'));
+  });
+  const blob = new Blob(['﻿' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'simulacion_problema_focal.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ====================== ciclo principal ====================== */
+let ultimo = 0, acum = 0;
+function frame(ahora) {
+  const dt = Math.min(0.1, (ahora - ultimo) / 1000);
+  ultimo = ahora;
+  if (running && !simE.fin) {
+    acum += dt * (+$('speed').value);
+    let n = 0;
+    while (acum >= DT && n < 4000 && !simE.fin) { simE.paso(); simS.paso(); acum -= DT; n++; }
+    if (n >= 4000) { acum = 0; }
+    if (simE.fin && !finMostrado) { terminar(); }
+  }
+  escenas.forEach(dibujar);
+  refrescarUI(false);
+  requestAnimationFrame(frame);
+}
+
+function terminar() {
+  finMostrado = true; running = false;
+  $('btnPlay').textContent = '▶ Iniciar';
+  refrescarUI(true);
+  const a = simE.metricas(), b = simS.metricas();
+  $('finTxt').innerHTML =
+    '<p><b>Con Excel:</b> ' + a.cargados + ' pedidos cargados, ' + f1(a.horasAdmin) + ' horas-persona perdidas en trámites y traslados, ' +
+    f1(a.pctErr) + ' % de registros con error y un rendimiento del personal que solo se acredita con ' + f1(a.precision) + ' % de precisión. El supervisor tardaría ≈ ' + f0(a.tConsol) + ' min en consolidar.</p>' +
+    '<p><b>Con el sistema:</b> ' + b.cargados + ' pedidos cargados, ' + f1(b.horasAdmin) + ' horas-persona en trámites, 0 % de errores y rendimiento visible en tiempo real.</p>';
+  $('fin').style.display = 'flex';
+}
+
+function alternar() {
+  if (simE.fin) { return; }
+  running = !running;
+  $('btnPlay').textContent = running ? '⏸ Pausar' : '▶ Continuar';
+}
+
+$('btnPlay').addEventListener('click', alternar);
+$('btnReset').addEventListener('click', reiniciar);
+$('btnStep').addEventListener('click', () => {
+  if (simE.fin) { return; }
+  for (let i = 0; i < 120 && !simE.fin; i++) { simE.paso(); simS.paso(); }
+  if (simE.fin && !finMostrado) { terminar(); }
+  refrescarUI(true);
+});
+$('btnCsv').addEventListener('click', descargarCsv);
+$('btnFinCsv').addEventListener('click', descargarCsv);
+$('btnFinCerrar').addEventListener('click', () => { $('fin').style.display = 'none'; });
+$('speed').addEventListener('change', () => { acum = 0; });
+$('tabs').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button');
+  if (!b) { return; }
+  vista = b.dataset.v;
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('act', x === b));
+  construirEscenas();
+  refrescarUI(true);
+});
+window.addEventListener('keydown', (ev) => {
+  if (ev.code === 'Space' && !/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)) { ev.preventDefault(); alternar(); }
+});
+window.addEventListener('resize', ajustarCanvas);
+
+construirParametros();
+reiniciar();
+requestAnimationFrame((t) => { ultimo = t; frame(t); });
+</script>
+</body>
+</html>
